@@ -1,10 +1,13 @@
 import { priorityBands, type PriorityBand } from '../../domain/priority/priority-calculator.js';
 import { DomainRuleError } from '../../domain/shared/domain-errors.js';
 import type {
+  StaffOperationResult,
   StaffOperationCommand,
   StaffOperations,
 } from '../../application/triage/staff-operations-service.js';
 import type { InspectionItemInput } from '../../domain/quality/quality-policy.js';
+import { pdcaStages, type PdcaStage } from '../../domain/pdca/pdca-policy.js';
+import type { ReportPeriodKind } from '../../domain/reporting/reporting-period.js';
 
 const help = [
   '/queue',
@@ -31,6 +34,11 @@ const help = [
   '/resolveoverdue ORDER',
   '/failednotifications',
   '/retrynotification NTF_CODE',
+  '/report week|month',
+  '/reportcsv week|month',
+  '/pdca',
+  '/pdca new AREA ISO_DEADLINE title | problem | action | expected outcome',
+  '/pdca move PDC_CODE DO|CHECK|ACT|COMPLETED|PLAN|CANCELLED reason',
   '/checklist ORDER',
   '/inspect ORDER CODE=PASS,CODE=FAIL qisqa xulosa',
   '/approve ORDER',
@@ -66,6 +74,22 @@ function deadline(value: string | undefined): Date {
     throw new DomainRuleError('COMMAND_INVALID', 'Muddat ISO-8601 formatida bo‘lishi kerak');
   }
   return parsed;
+}
+
+function reportPeriod(value: string | undefined): ReportPeriodKind {
+  const normalized = required(value, '/report week|month').toUpperCase();
+  if (normalized !== 'WEEK' && normalized !== 'MONTH') {
+    throw new DomainRuleError('COMMAND_INVALID', 'Davr week yoki month bo‘lishi kerak');
+  }
+  return normalized;
+}
+
+function pdcaStage(value: string | undefined): PdcaStage {
+  const normalized = required(value, '/pdca move PDC_CODE STAGE reason').toUpperCase();
+  if (!pdcaStages.includes(normalized as PdcaStage)) {
+    throw new DomainRuleError('COMMAND_INVALID', `PDCA bosqichi: ${pdcaStages.join('|')}`);
+  }
+  return normalized as PdcaStage;
 }
 
 function inspectionResults(value: string | undefined): readonly InspectionItemInput[] {
@@ -206,6 +230,46 @@ function parse(text: string): StaffOperationCommand | 'help' {
       return { kind: 'failed-notifications' };
     case '/retrynotification':
       return { code: ticket(), kind: 'retry-notification' };
+    case '/report':
+      return { kind: 'report', period: reportPeriod(parts[0]) };
+    case '/reportcsv':
+      return { kind: 'report-export', period: reportPeriod(parts[0]) };
+    case '/pdca': {
+      const operation = parts[0]?.toLowerCase();
+      if (!operation || operation === 'list') return { kind: 'pdca-list' };
+      if (operation === 'new') {
+        const usage = '/pdca new AREA ISO_DEADLINE title | problem | action | expected outcome';
+        const fields = parts
+          .slice(3)
+          .join(' ')
+          .split('|')
+          .map((value) => value.trim());
+        if (fields.length !== 4) {
+          throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
+        }
+        const [title, problemStatement, plannedAction, expectedOutcome] = fields;
+        return {
+          areaCode: required(parts[1], usage).toUpperCase(),
+          input: {
+            dueAt: deadline(parts[2]),
+            expectedOutcome: required(expectedOutcome, usage),
+            plannedAction: required(plannedAction, usage),
+            problemStatement: required(problemStatement, usage),
+            title: required(title, usage),
+          },
+          kind: 'pdca-create',
+        };
+      }
+      if (operation === 'move') {
+        return {
+          code: required(parts[1], '/pdca move PDC_CODE STAGE reason').toUpperCase(),
+          kind: 'pdca-transition',
+          reason: required(parts.slice(3).join(' '), '/pdca move PDC_CODE STAGE reason'),
+          to: pdcaStage(parts[2]),
+        };
+      }
+      throw new DomainRuleError('COMMAND_INVALID', 'Foydalanish: /pdca [list|new|move]');
+    }
     case '/checklist':
       return { kind: 'quality-checklist', orderNumber: ticket() };
     case '/inspect':
@@ -262,7 +326,7 @@ function parse(text: string): StaffOperationCommand | 'help' {
 export class StaffTelegramController {
   constructor(private readonly operations: StaffOperations) {}
 
-  async handle(telegramUserId: bigint, text: string): Promise<string> {
+  async handle(telegramUserId: bigint, text: string): Promise<StaffOperationResult> {
     const command = parse(text);
     return command === 'help' ? help : this.operations.execute(telegramUserId, command);
   }
@@ -284,7 +348,7 @@ export class StaffTelegramController {
         'Evidence phase BEFORE yoki AFTER bo‘lishi kerak',
       );
     }
-    return this.operations.execute(telegramUserId, {
+    const result = await this.operations.execute(telegramUserId, {
       evidence: {
         fileId: photo.fileId,
         fileSize: photo.fileSize,
@@ -296,5 +360,7 @@ export class StaffTelegramController {
       kind: 'work-evidence',
       orderNumber,
     });
+    if (typeof result !== 'string') throw new Error('Evidence operation returned a document');
+    return result;
   }
 }

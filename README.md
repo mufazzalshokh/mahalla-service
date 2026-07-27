@@ -3,9 +3,8 @@
 Telegram-first order portfolio and service-management platform for a Mahalla
 Service Company (MCK).
 
-The repository is being delivered checkpoint by checkpoint. CP-01 establishes the
-engineering foundation only; resident intake and operational workflows are later
-checkpoints.
+The repository is delivered checkpoint by checkpoint. CP-00 through CP-07 are approved; CP-08
+operational KPI reporting, CSV export, and auditable PDCA are implemented and awaiting approval.
 
 ## Prerequisites
 

@@ -1,4 +1,4 @@
-import { Bot } from 'grammy';
+import { Bot, InputFile } from 'grammy';
 
 import type { StaffOperations } from '../../application/triage/staff-operations-service.js';
 import { StaffTelegramController } from './staff-telegram-controller.js';
@@ -15,7 +15,15 @@ export function createStaffBot(options: StaffBotOptions): Bot {
   bot.on('message:text', async (ctx) => {
     if (!ctx.from) return;
     const reply = await controller.handle(BigInt(ctx.from.id), ctx.message.text);
-    await ctx.reply(reply);
+    if (typeof reply === 'string') await ctx.reply(reply);
+    else {
+      await ctx.replyWithDocument(
+        new InputFile(Buffer.from(reply.content, 'utf8'), reply.fileName),
+        {
+          caption: reply.caption,
+        },
+      );
+    }
   });
   bot.on('message:photo', async (ctx) => {
     if (!ctx.from) return;

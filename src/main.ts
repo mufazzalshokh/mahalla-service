@@ -11,6 +11,8 @@ import { TransitionRequestService } from './application/requests/transition-requ
 import { QualityService, ResidentQualityService } from './application/quality/quality-service.js';
 import { NotificationService } from './application/notifications/notification-service.js';
 import { OperationalAutomation } from './application/automation/operational-automation.js';
+import { ReportingService } from './application/reporting/reporting-service.js';
+import { PdcaService } from './application/pdca/pdca-service.js';
 import {
   AssessPriorityService,
   DecideDuplicateService,
@@ -33,6 +35,8 @@ import { PostgresQualityRepository } from './infrastructure/quality/postgres-qua
 import { PostgresTriageRepository } from './infrastructure/triage/postgres-triage-repository.js';
 import { PostgresNotificationRepository } from './infrastructure/notifications/postgres-notification-repository.js';
 import { PostgresAutomationRepository } from './infrastructure/automation/postgres-automation-repository.js';
+import { PostgresReportingRepository } from './infrastructure/reporting/postgres-reporting-repository.js';
+import { PostgresPdcaRepository } from './infrastructure/pdca/postgres-pdca-repository.js';
 import { buildApp } from './interfaces/http/build-app.js';
 import { createResidentBot } from './interfaces/telegram/resident-bot.js';
 import { createStaffBot } from './interfaces/telegram/staff-bot.js';
@@ -126,9 +130,11 @@ async function start(): Promise<void> {
         listQueue: new ListValidationQueueService(triageRepository),
         notifications: notificationService,
         overridePriority: new OverridePriorityService(triageRepository),
+        pdca: new PdcaService(new PostgresPdcaRepository(applicationDatabase.db)),
         principals: new PostgresPrincipalProvider(applicationDatabase.db),
         quality,
         registerRequest: new RegisterRequestAsOrderService(triageRepository),
+        reporting: new ReportingService(new PostgresReportingRepository(applicationDatabase.db)),
         suggestDuplicates: new SuggestDuplicatesService(triageRepository),
         transitionRequest: new TransitionRequestService(
           new PostgresRequestRepository(applicationDatabase.db),

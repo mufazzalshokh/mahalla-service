@@ -148,4 +148,61 @@ describe('staff Telegram controller', () => {
       /resolve/,
     );
   });
+
+  it('parses reporting and PDCA commands into explicit operations', async () => {
+    const execute = vi.fn().mockResolvedValue('ok');
+    const controller = new StaffTelegramController({ execute });
+    await controller.handle(2n, '/report week');
+    await controller.handle(2n, '/reportcsv month');
+    await controller.handle(2n, '/pdca');
+    await controller.handle(
+      2n,
+      '/pdca new demo 2026-08-10T18:00:00+05:00 Stop leak | Pipe leaks | Replace pipe | No leak',
+    );
+    await controller.handle(2n, '/pdca move pdc-2026-1 do Work started');
+    expect(execute).toHaveBeenNthCalledWith(1, 2n, { kind: 'report', period: 'WEEK' });
+    expect(execute).toHaveBeenNthCalledWith(2, 2n, { kind: 'report-export', period: 'MONTH' });
+    expect(execute).toHaveBeenNthCalledWith(3, 2n, { kind: 'pdca-list' });
+    expect(execute).toHaveBeenNthCalledWith(4, 2n, {
+      areaCode: 'DEMO',
+      input: {
+        dueAt: new Date('2026-08-10T13:00:00Z'),
+        expectedOutcome: 'No leak',
+        plannedAction: 'Replace pipe',
+        problemStatement: 'Pipe leaks',
+        title: 'Stop leak',
+      },
+      kind: 'pdca-create',
+    });
+    expect(execute).toHaveBeenLastCalledWith(2n, {
+      code: 'PDC-2026-1',
+      kind: 'pdca-transition',
+      reason: 'Work started',
+      to: 'DO',
+    });
+  });
+
+  it('rejects malformed reporting and PDCA commands', async () => {
+    const controller = new StaffTelegramController({ execute: vi.fn() });
+    await expect(controller.handle(2n, '/report year')).rejects.toThrow(/week/i);
+    await expect(controller.handle(2n, '/pdca move X UNKNOWN reason')).rejects.toThrow(/PLAN/u);
+    await expect(controller.handle(2n, '/pdca new DEMO bad a | b | c | d')).rejects.toThrow(
+      /timezone/i,
+    );
+    await expect(controller.handle(2n, '/pdca unknown')).rejects.toThrow(/list/u);
+  });
+
+  it('falls back to help and rejects malformed photo evidence captions', async () => {
+    const execute = vi.fn();
+    const controller = new StaffTelegramController({ execute });
+    await expect(controller.handle(2n, '/unknown')).resolves.toContain('/reopen');
+    expect(execute).not.toHaveBeenCalled();
+    const photo = { fileId: 'f', fileSize: 10, fileUniqueId: 'u' };
+    await expect(controller.handleEvidence(2n, '/wrong ORD-1 BEFORE', photo)).rejects.toThrow(
+      /Foto/u,
+    );
+    await expect(controller.handleEvidence(2n, '/evidence ORD-1 DURING', photo)).rejects.toThrow(
+      /BEFORE/u,
+    );
+  });
 });

@@ -35,6 +35,10 @@ Protected assets are bot tokens, Telegram identifiers, phone numbers, addresses/
 | Telegram failure silently loses a material update                   | transactional outbox, bounded retry, attempt history, dead-letter queue and scoped recovery commands                 | live provider alerting belongs to observability hardening                     |
 | Notification leaks resident or complaint content                    | fixed template payload includes reference/status/deadline only; area-scoped failure visibility                       | template/privacy review before adding any new payload field                   |
 | Two workers deliver the same claimed row                            | `SKIP LOCKED`, worker lease token and attempt predicate on completion                                                | crash after provider success can still duplicate under at-least-once delivery |
+| Staff reads or exports another area's performance                   | separate persisted `report.read`/`report.export` grants and area predicates on every aggregate source                | global administrator grants require careful provisioning                      |
+| CSV value executes as a spreadsheet formula                         | cells beginning with `=`, `+`, `-`, or `@` are prefixed; quotes/newlines are normalized                              | spreadsheet software and downstream transformations still require care        |
+| KPI wording is mistaken for financial/contractual truth             | formulas/timezone/denominators are documented; SLA is internal and profitability is excluded                         | buyer approval is required before external commitments                        |
+| PDCA history is rewritten or two managers overwrite each other      | append-only history/audit, optimistic action version, database constraints, and transaction tests                    | audit access and retention policy remain operational responsibilities         |
 
 ## Abuse and privacy defaults
 

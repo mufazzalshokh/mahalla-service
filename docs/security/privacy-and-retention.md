@@ -20,5 +20,11 @@ This document is an engineering default, not legal advice or a compliance claim.
 | Complaint and rework reason          | review defects and control correction              | complaint/rework tables     | retain while case is open, then provisional 24 months; legal hold may override     |
 | Warranty dates                       | show the pilot correction window                   | order warranty              | same period as order quality history                                               |
 | Notification intent/attempt metadata | deliver and diagnose material updates              | outbox and attempt history  | provisional 90 days after delivery; dead letters until corrected/reviewed          |
+| PDCA action/history                  | assign and prove operational improvement           | PDCA and audit tables       | provisional 24 months after completion; policy/legal hold may override             |
+
+Reports are generated on demand and are not persisted by the application. CSV exports may contain
+operational category and performance data and become copies outside application access control;
+recipients must store/share them only in an approved location. Report queries do not export resident
+names, Telegram IDs, phones, addresses, descriptions, complaint reasons, or evidence identifiers.
 
 Residents need a future authenticated workflow for access, correction, deletion/anonymization requests, and account recovery. Physical deletion of audit evidence must not be improvised; approved anonymization and legal-hold rules are required first.

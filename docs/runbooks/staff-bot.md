@@ -39,6 +39,11 @@ The Telegram account must map to an active `users.telegram_user_id` and an area-
 /resolveoverdue ORDER
 /failednotifications
 /retrynotification NTF_CODE
+/report week|month
+/reportcsv week|month
+/pdca
+/pdca new AREA ISO_DEADLINE title | problem | action | expected outcome
+/pdca move PDC_CODE DO|CHECK|ACT|COMPLETED|PLAN|CANCELLED reason
 /checklist ORDER
 /inspect ORDER WORK_COMPLETE=PASS,RESULT_TESTED=PASS,AREA_CLEAN=PASS summary
 /approve ORDER
@@ -65,6 +70,12 @@ Residents answer a missing-information request in the resident bot with `/respon
   overdue; active overdue causes are rejected.
 - Review `/failednotifications` each shift. Correct a missing/disabled Telegram account before
   `/retrynotification`; recovery resets the delivery counter but preserves prior attempt history.
+- Use `/report week` for the shift/management view and `/reportcsv month` for an authorized export.
+  Figures are current-to-date in Asia/Tashkent; backlog/open/overdue values are live snapshots.
+- Treat CSV files as sensitive operational records: send only to the intended manager and store them
+  in an approved location. The exporter neutralizes spreadsheet formula prefixes.
+- Use `/pdca` to review active/overdue actions. Move actions in order PLAN→DO→CHECK→ACT→COMPLETED;
+  CHECK/ACT may return to PLAN with a revision reason. Do not mark completed without a factual result.
 - Use `/checklist` before `/inspect`; required items cannot be `NOT_APPLICABLE`.
 - `/approve` may require a passing inspection. `/rework` creates a fresh executor assignment and SLA.
 - `/complaints` is a review queue. A complaint does not reopen work until authorized `/reopen` records a reason.

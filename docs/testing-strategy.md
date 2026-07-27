@@ -67,3 +67,14 @@ controller and application behavior are tested without requiring a live bot toke
   dead-letter/recovery, automated deadline/complaint scan, deduplication, and escalation tests.
 - Fresh migration plus repeated migration/seed and every prior PostgreSQL integration suite.
 - At least 80% overall executable coverage and the existing critical-policy thresholds.
+
+## CP-08 gates
+
+- Exact Tashkent week/month boundary and zero-denominator formula tests.
+- CSV quoting, line normalization, and spreadsheet-formula injection tests.
+- Separate read/export authorization and area-scope tests.
+- PDCA text/deadline validation, allowed/invalid transitions, closed-state and overdue tests.
+- Real PostgreSQL migration/reseed, live aggregate query, cross-area isolation, PDCA history/audit,
+  full lifecycle, and concurrent stale-writer tests.
+- Full prior integration suite, at least 80% overall executable coverage, production build,
+  migration consistency, and dependency audit.

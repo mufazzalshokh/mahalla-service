@@ -97,12 +97,21 @@ export const notificationAttemptOutcomeEnum = pgEnum('notification_attempt_outco
   'RETRY_SCHEDULED',
   'DEAD_LETTER',
 ]);
+export const pdcaStageEnum = pgEnum('pdca_stage', [
+  'PLAN',
+  'DO',
+  'CHECK',
+  'ACT',
+  'COMPLETED',
+  'CANCELLED',
+]);
 export const serviceRequestTicketSequence = pgSequence('service_request_ticket_seq', {
   startWith: 1,
 });
 export const orderPortfolioSequence = pgSequence('order_portfolio_seq', { startWith: 1 });
 export const qualityComplaintSequence = pgSequence('quality_complaint_seq', { startWith: 1 });
 export const notificationSequence = pgSequence('notification_seq', { startWith: 1 });
+export const pdcaActionSequence = pgSequence('pdca_action_seq', { startWith: 1 });
 
 export const serviceAreas = pgTable(
   'service_areas',
@@ -805,6 +814,88 @@ export const notificationDeliveryAttempts = pgTable(
     uniqueIndex('notification_attempt_number_uq').on(table.notificationId, table.attemptNumber),
     index('notification_attempt_outcome_idx').on(table.outcome, table.finishedAt),
     check('notification_attempt_number_ck', sql`${table.attemptNumber} > 0`),
+  ],
+);
+
+export const pdcaActions = pgTable(
+  'pdca_actions',
+  {
+    categoryId: uuid('category_id').references(() => serviceCategories.id, {
+      onDelete: 'restrict',
+    }),
+    code: varchar('code', { length: 30 }).notNull(),
+    completedAt: timestamp('completed_at', { mode: 'date', withTimezone: true }),
+    createdAt,
+    createdByUserId: uuid('created_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    dueAt: timestamp('due_at', { mode: 'date', withTimezone: true }).notNull(),
+    expectedOutcome: text('expected_outcome').notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    plannedAction: text('planned_action').notNull(),
+    problemStatement: text('problem_statement').notNull(),
+    result: text('result'),
+    serviceAreaId: uuid('service_area_id')
+      .notNull()
+      .references(() => serviceAreas.id, { onDelete: 'restrict' }),
+    stage: pdcaStageEnum('stage').notNull().default('PLAN'),
+    title: varchar('title', { length: 200 }).notNull(),
+    updatedAt,
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex('pdca_actions_code_uq').on(table.code),
+    index('pdca_actions_area_stage_due_idx').on(table.serviceAreaId, table.stage, table.dueAt),
+    index('pdca_actions_owner_stage_idx').on(table.ownerUserId, table.stage, table.dueAt),
+    check('pdca_actions_due_ck', sql`${table.dueAt} > ${table.createdAt}`),
+    check('pdca_actions_version_ck', sql`${table.version} >= 0`),
+    check('pdca_actions_title_ck', sql`length(trim(${table.title})) between 3 and 200`),
+    check(
+      'pdca_actions_problem_ck',
+      sql`length(trim(${table.problemStatement})) between 3 and 2000`,
+    ),
+    check('pdca_actions_plan_ck', sql`length(trim(${table.plannedAction})) between 3 and 2000`),
+    check(
+      'pdca_actions_expected_ck',
+      sql`length(trim(${table.expectedOutcome})) between 3 and 1000`,
+    ),
+    check(
+      'pdca_actions_result_ck',
+      sql`${table.result} is null or length(trim(${table.result})) between 3 and 1000`,
+    ),
+    check(
+      'pdca_actions_completion_ck',
+      sql`(${table.stage} = 'COMPLETED' and ${table.completedAt} is not null and ${table.result} is not null) or (${table.stage} <> 'COMPLETED' and ${table.completedAt} is null)`,
+    ),
+  ],
+);
+
+export const pdcaActionHistory = pgTable(
+  'pdca_action_history',
+  {
+    actionId: uuid('action_id')
+      .notNull()
+      .references(() => pdcaActions.id, { onDelete: 'restrict' }),
+    actionVersion: integer('action_version').notNull(),
+    actorUserId: uuid('actor_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    fromStage: pdcaStageEnum('from_stage'),
+    id: uuid('id').primaryKey().defaultRandom(),
+    occurredAt: timestamp('occurred_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    reason: text('reason').notNull(),
+    toStage: pdcaStageEnum('to_stage').notNull(),
+  },
+  (table) => [
+    uniqueIndex('pdca_action_history_version_uq').on(table.actionId, table.actionVersion),
+    index('pdca_action_history_timeline_idx').on(table.actionId, table.occurredAt),
+    check('pdca_action_history_version_ck', sql`${table.actionVersion} >= 0`),
+    check('pdca_action_history_reason_ck', sql`length(trim(${table.reason})) between 3 and 1000`),
   ],
 );
 

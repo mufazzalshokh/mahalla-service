@@ -15,9 +15,23 @@ import type { ExecutionService } from '../execution/execution-service.js';
 import type { QualityService } from '../quality/quality-service.js';
 import type { InspectionItemInput } from '../../domain/quality/quality-policy.js';
 import type { NotificationService } from '../notifications/notification-service.js';
+import type { ReportingService } from '../reporting/reporting-service.js';
+import { formatOperationalReport } from '../reporting/report-format.js';
+import type { ReportPeriodKind } from '../../domain/reporting/reporting-period.js';
+import type { PdcaActionInput, PdcaStage } from '../../domain/pdca/pdca-policy.js';
+import type { PdcaService } from '../pdca/pdca-service.js';
+
+export interface StaffDocumentResult {
+  readonly caption: string;
+  readonly content: string;
+  readonly fileName: string;
+  readonly kind: 'document';
+}
+
+export type StaffOperationResult = string | StaffDocumentResult;
 
 export interface StaffOperations {
-  execute(telegramUserId: bigint, command: StaffOperationCommand): Promise<string>;
+  execute(telegramUserId: bigint, command: StaffOperationCommand): Promise<StaffOperationResult>;
 }
 
 export type StaffOperationCommand =
@@ -72,6 +86,20 @@ export type StaffOperationCommand =
   | { readonly kind: 'resolve-overdue'; readonly orderNumber: string }
   | { readonly kind: 'failed-notifications' }
   | { readonly code: string; readonly kind: 'retry-notification' }
+  | { readonly kind: 'report'; readonly period: ReportPeriodKind }
+  | { readonly kind: 'report-export'; readonly period: ReportPeriodKind }
+  | { readonly kind: 'pdca-list' }
+  | {
+      readonly areaCode: string;
+      readonly input: PdcaActionInput;
+      readonly kind: 'pdca-create';
+    }
+  | {
+      readonly code: string;
+      readonly kind: 'pdca-transition';
+      readonly reason: string;
+      readonly to: PdcaStage;
+    }
   | { readonly kind: 'quality-checklist'; readonly orderNumber: string }
   | {
       readonly kind: 'quality-inspection';
@@ -100,6 +128,8 @@ export interface StaffOperationDependencies {
   readonly overridePriority: OverridePriorityService;
   readonly principals: PrincipalProvider;
   readonly quality: QualityService;
+  readonly pdca: PdcaService;
+  readonly reporting: ReportingService;
   readonly registerRequest: RegisterRequestAsOrderService;
   readonly suggestDuplicates: SuggestDuplicatesService;
   readonly transitionRequest: TransitionRequestService;
@@ -108,7 +138,10 @@ export interface StaffOperationDependencies {
 export class StaffOperationsService implements StaffOperations {
   constructor(private readonly dependencies: StaffOperationDependencies) {}
 
-  async execute(telegramUserId: bigint, command: StaffOperationCommand): Promise<string> {
+  async execute(
+    telegramUserId: bigint,
+    command: StaffOperationCommand,
+  ): Promise<StaffOperationResult> {
     const principal = await this.dependencies.principals.loadByTelegramUserId(telegramUserId);
     if (!principal) throw new AuthorizationError('active staff account');
     switch (command.kind) {
@@ -324,6 +357,47 @@ export class StaffOperationsService implements StaffOperations {
       case 'retry-notification':
         await this.dependencies.notifications.recover(command.code, principal);
         return `${command.code}: xabar qayta yuborish navbatiga qo‘yildi.`;
+      case 'report':
+        return formatOperationalReport(
+          await this.dependencies.reporting.report(command.period, principal),
+        );
+      case 'report-export': {
+        const exported = await this.dependencies.reporting.exportCsv(command.period, principal);
+        return {
+          caption: `${command.period} operational report — Asia/Tashkent`,
+          content: exported.content,
+          fileName: exported.fileName,
+          kind: 'document',
+        };
+      }
+      case 'pdca-list': {
+        const actions = await this.dependencies.pdca.list(principal);
+        return actions.length === 0
+          ? 'Faol PDCA harakati yo‘q.'
+          : actions
+              .map(
+                ({ code, dueAt, overdue, stage, title }) =>
+                  `${code} — ${stage} — ${dueAt.toISOString()}${overdue ? ' — OVERDUE' : ''} — ${title}`,
+              )
+              .join('\n');
+      }
+      case 'pdca-create': {
+        const action = await this.dependencies.pdca.create(
+          command.areaCode,
+          command.input,
+          principal,
+        );
+        return `${action.code}: PDCA PLAN yaratildi, muddat ${action.dueAt.toISOString()}.`;
+      }
+      case 'pdca-transition': {
+        const action = await this.dependencies.pdca.transition(
+          command.code,
+          command.to,
+          command.reason,
+          principal,
+        );
+        return `${action.code}: PDCA bosqichi ${action.stage}.`;
+      }
       case 'quality-checklist': {
         const policy = await this.dependencies.quality.checklist(command.orderNumber, principal);
         return [

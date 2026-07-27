@@ -61,3 +61,14 @@ Resident/staff profiles, duplicate matches, priority assessments, assignment his
 inspections, acceptances, warranties, feedback, complaints, rework decisions, notification intents,
 delivery attempts, and automated alerts now exist through CP-07. Finance and KPI projections remain
 assigned to later checkpoints.
+
+# CP-08 reporting and improvement model
+
+The Reporting context derives an `OperationalReport` for an explicit `ReportingPeriod` and caller
+area scope. Its portfolio, SLA, quality, complaint, repeat-problem, and PDCA metric groups contain
+numbers only; source records and resident content do not cross the reporting boundary. CSV encoding
+is a domain policy because spreadsheet interpretation is a security concern.
+
+The PDCA context owns `PdcaAction`, its strict stage transition policy, deadline/text validation,
+overdue projection, optimistic version, and append-only `PdcaActionHistory`. Reporting reads PDCA
+facts but cannot mutate them; staff operations invoke `PdcaService` for authorized changes.

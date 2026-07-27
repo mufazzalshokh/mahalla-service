@@ -128,5 +128,6 @@ These are internal, configurable targets—not contractual promises:
 - accounting and profitability automation;
 - organizational and grant contract management;
 - warranty automation beyond a basic complaint/rework link;
-- advanced KPI dashboards and PDCA action management;
+- advanced visual/immutable KPI dashboards and automated PDCA recommendations (basic Telegram/CSV
+  reporting and auditable manual PDCA are implemented in CP-08);
 - contractor portal, administrative web UI and external integrations.
