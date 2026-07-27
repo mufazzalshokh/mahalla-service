@@ -58,6 +58,7 @@ CP-09 begins.
 - [CP-06 checkpoint record](checkpoints/CP-06-quality-acceptance-and-complaints.md)
 - [CP-07 checkpoint record](checkpoints/CP-07-notifications-and-operational-automation.md)
 - [CP-08 checkpoint record](checkpoints/CP-08-kpi-portfolio-reporting-and-pdca.md)
+- [CP-08.1 checkpoint record](checkpoints/CP-08.1-bilingual-button-telegram-ux.md)
 
 ## Evidence hierarchy
 

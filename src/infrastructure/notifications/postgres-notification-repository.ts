@@ -69,7 +69,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
         .where(inArray(notificationOutbox.id, ids));
       return rows.map((row) => ({
         ...row,
-        language: row.language === 'uz-Cyrl' ? 'uz-Cyrl' : 'uz-Latn',
+        language: row.language === 'ru' ? 'ru' : row.language === 'uz-Cyrl' ? 'uz-Cyrl' : 'uz-Latn',
       }));
     });
   }

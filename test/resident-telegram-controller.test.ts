@@ -59,4 +59,9 @@ describe('resident Telegram controller', () => {
   it('uses a safe key fallback for a data-driven category label', () => {
     expect(translate('uz-Latn', 'Santexnika')).toBe('Santexnika');
   });
+
+  it('renders Russian resident messages', () => {
+    expect(translate('ru', 'choose_category')).toBe('Выберите вид услуги.');
+    expect(translate('ru', 'submitted', { ticketNumber: 'MCK-1' })).toContain('MCK-1');
+  });
 });

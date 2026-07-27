@@ -13,7 +13,20 @@ AUTOMATION_POLL_SECONDS=30
 
 The Telegram account must map to an active `users.telegram_user_id` and an area-scoped `operator_manager` role. Every command reloads persisted grants; possession of the bot token or knowledge of a command grants no business permission.
 
-## Commands
+## Button-first operation
+
+Send `/start` or `/menu`, choose Uzbek or Russian, and use the persistent menu. Routine queues,
+reports, complaints, notifications, orders and PDCA actions are available as buttons. Entity lists
+open contextual action buttons. The bot asks for text only when the business record needs a factual
+reason, note, score, deadline or summary.
+
+The guided quality checklist requires every item to be explicitly marked PASS or FAIL before it asks
+for the inspection summary. BEFORE/AFTER buttons arm the next uploaded photo, so a caption command is
+not required. Guided state is bounded, process-local and expires after 30 minutes; `/menu` safely
+cancels a pending text step. A process restart clears unfinished guided state without changing any
+persisted request/order facts.
+
+## Command fallback
 
 ```text
 /queue
@@ -26,7 +39,7 @@ The Telegram account must map to an active `users.telegram_user_id` and an area-
 /register TICKET
 /reject TICKET reason
 /executors ORDER
-/assign ORDER EXECUTOR_CODE 2026-07-28T18:00:00+05:00
+/assign ORDER EXECUTOR_CODE 28.07.2026 18:00
 /mine
 /accept ORDER
 /decline ORDER reason
@@ -42,7 +55,7 @@ The Telegram account must map to an active `users.telegram_user_id` and an area-
 /report week|month
 /reportcsv week|month
 /pdca
-/pdca new AREA ISO_DEADLINE title | problem | action | expected outcome
+/pdca new AREA DD.MM.YYYY HH:mm title | problem | action | expected outcome
 /pdca move PDC_CODE DO|CHECK|ACT|COMPLETED|PLAN|CANCELLED reason
 /checklist ORDER
 /inspect ORDER WORK_COMPLETE=PASS,RESULT_TESTED=PASS,AREA_CLEAN=PASS summary
@@ -63,7 +76,8 @@ Residents answer a missing-information request in the resident bot with `/respon
 - Run one application process and one long-polling consumer per bot token.
 - Use `/duplicates` before `/register`; never treat a suggestion as a decision.
 - Use `/executors ORDER` before assignment; only active, available, scoped, category-capable profiles appear.
-- Include a timezone offset or `Z` in deadlines; ambiguous timestamps are rejected.
+- Button prompts use Tashkent `DD.MM.YYYY HH:mm`. Legacy ISO timestamps with an explicit offset or
+  `Z` remain accepted by command fallback.
 - Executors accept before progress or `AFTER` evidence. A decline preserves the attempt and returns the order for reassignment.
 - `/overdue` remains an on-demand view; automation scans deadlines and complaint review targets.
 - Acknowledge an active alert with `/ackoverdue`. Resolve it only after the order is no longer

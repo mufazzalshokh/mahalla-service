@@ -69,16 +69,30 @@ export async function seedFoundation(database: MckDatabase): Promise<void> {
     await tx
       .insert(serviceCategories)
       .values([
-        { code: 'PLUMBING', nameUzCyrl: 'Сантехника', nameUzLatn: 'Santexnika', sortOrder: 10 },
+        {
+          code: 'PLUMBING',
+          nameRu: 'Сантехника',
+          nameUzCyrl: 'Сантехника',
+          nameUzLatn: 'Santexnika',
+          sortOrder: 10,
+        },
         {
           code: 'ELECTRICAL',
+          nameRu: 'Электрические услуги',
           nameUzCyrl: 'Электр хизмати',
           nameUzLatn: 'Elektr xizmati',
           sortOrder: 20,
         },
-        { code: 'REPAIR', nameUzCyrl: 'Таъмирлаш', nameUzLatn: "Ta'mirlash", sortOrder: 30 },
+        {
+          code: 'REPAIR',
+          nameRu: 'Ремонт',
+          nameUzCyrl: 'Таъмирлаш',
+          nameUzLatn: "Ta'mirlash",
+          sortOrder: 30,
+        },
         {
           code: 'LANDSCAPING',
+          nameRu: 'Благоустройство',
           nameUzCyrl: 'Ободонлаштириш',
           nameUzLatn: 'Obodonlashtirish',
           sortOrder: 40,
@@ -116,6 +130,7 @@ export async function seedFoundation(database: MckDatabase): Promise<void> {
         .values([
           {
             code: 'WORK_COMPLETE',
+            labelRu: 'Работа выполнена в согласованном объёме',
             labelUzCyrl: 'Иш келишилган ҳажмда бажарилди',
             labelUzLatn: 'Ish kelishilgan hajmda bajarildi',
             sortOrder: 10,
@@ -123,6 +138,7 @@ export async function seedFoundation(database: MckDatabase): Promise<void> {
           },
           {
             code: 'RESULT_TESTED',
+            labelRu: 'Результат безопасно проверен',
             labelUzCyrl: 'Натижа хавфсиз текширилди',
             labelUzLatn: 'Natija xavfsiz tekshirildi',
             sortOrder: 20,
@@ -130,6 +146,7 @@ export async function seedFoundation(database: MckDatabase): Promise<void> {
           },
           {
             code: 'AREA_CLEAN',
+            labelRu: 'Место работы оставлено чистым',
             labelUzCyrl: 'Иш жойи тоза қолдирилди',
             labelUzLatn: 'Ish joyi toza qoldirildi',
             sortOrder: 30,

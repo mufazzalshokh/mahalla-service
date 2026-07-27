@@ -9,7 +9,7 @@ export interface ClaimedNotification {
   readonly attemptNumber: number;
   readonly audience: NotificationAudience;
   readonly id: string;
-  readonly language: 'uz-Cyrl' | 'uz-Latn';
+  readonly language: 'ru' | 'uz-Cyrl' | 'uz-Latn';
   readonly maxAttempts: number;
   readonly payload: NotificationPayload;
   readonly recipientTelegramUserId: bigint | null;

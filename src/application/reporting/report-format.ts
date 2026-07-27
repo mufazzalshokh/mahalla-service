@@ -1,5 +1,7 @@
 import type { OperationalReport } from '../../domain/reporting/operational-report.js';
 import { csvRow } from '../../domain/reporting/csv-policy.js';
+import { formatTashkentDate } from '../../domain/shared/tashkent-date-time.js';
+import type { BotLanguage } from '../localization/bot-language.js';
 
 function shown(value: number | null, suffix = ''): string {
   return value === null ? 'N/A' : `${value}${suffix}`;
@@ -9,27 +11,50 @@ function metricEntries(value: object): readonly (readonly [string, number | null
   return Object.entries(value) as readonly (readonly [string, number | null])[];
 }
 
-export function formatOperationalReport(report: OperationalReport): string {
+export function formatOperationalReport(
+  report: OperationalReport,
+  language: BotLanguage = 'uz',
+): string {
   const { complaints, pdca, portfolio, quality, repeatProblems, sla } = report;
+  const periodLabel =
+    language === 'ru'
+      ? `${report.period.kind === 'WEEK' ? 'Неделя' : 'Месяц'}: ${formatTashkentDate(report.period.startInclusive)}–${formatTashkentDate(report.period.asOf)}`
+      : report.period.label;
   const categories = repeatProblems.topCategories.length
     ? repeatProblems.topCategories
         .map(
           ({ categoryCode, complaintCount, confirmedDuplicateCount, requestCount, reworkCount }) =>
-            `${categoryCode}: ${requestCount} req / ${confirmedDuplicateCount} dup / ${complaintCount} cmp / ${reworkCount} rework`,
+            language === 'ru'
+              ? `${categoryCode}: заявок ${requestCount} / повторов ${confirmedDuplicateCount} / жалоб ${complaintCount} / доработок ${reworkCount}`
+              : `${categoryCode}: so‘rov ${requestCount} / takror ${confirmedDuplicateCount} / shikoyat ${complaintCount} / qayta ish ${reworkCount}`,
         )
         .join('\n')
-    : 'No category activity';
-  return [
-    report.period.label,
-    `Areas: ${report.serviceAreaCount}`,
-    `Portfolio — requests ${portfolio.requestsReceived}, orders ${portfolio.ordersCreated}, completed ${portfolio.completed}, cancelled ${portfolio.cancelled}, backlog ${portfolio.activeBacklog}, overdue ${portfolio.overdueActive}, urgent ${portfolio.urgentOrdersCreated}, completion/intake ${shown(portfolio.completionToIntakePercent, '%')}`,
-    `SLA — on time ${sla.completedOnTime}, late ${sla.completedLate}, attainment ${shown(sla.onTimePercent, '%')}, avg completion ${shown(sla.averageCompletionHours, 'h')}, paused ${sla.activePaused}, escalations ${sla.escalationCount}`,
-    `Quality — inspections ${quality.inspectionCount}, pass ${shown(quality.inspectionPassPercent, '%')}, acceptances ${quality.acceptanceCount}, rework ${quality.reworkCount}, feedback ${quality.feedbackCount}, avg rating ${shown(quality.averageRating)}`,
-    `Complaints — created ${complaints.created}, closed ${complaints.closedInPeriod}, open ${complaints.openBacklog}, overdue ${complaints.overdueOpen}, reopened ${complaints.reopened}, in warranty ${complaints.withinWarranty}`,
-    `Repeat — confirmed pairs ${repeatProblems.confirmedDuplicatePairs}, consolidated orders ${repeatProblems.consolidatedOrders}, linked requests ${repeatProblems.consolidatedRequests}`,
-    categories,
-    `PDCA — created ${pdca.createdInPeriod}, completed ${pdca.completedInPeriod}, active ${pdca.active}, overdue ${pdca.overdue}`,
-  ].join('\n');
+    : language === 'ru'
+      ? 'Нет активности по категориям'
+      : 'Toifalar bo‘yicha faollik yo‘q';
+  return language === 'ru'
+    ? [
+        periodLabel,
+        `Участки: ${report.serviceAreaCount}`,
+        `Портфель — заявки ${portfolio.requestsReceived}, заказы ${portfolio.ordersCreated}, завершено ${portfolio.completed}, отменено ${portfolio.cancelled}, в работе ${portfolio.activeBacklog}, просрочено ${portfolio.overdueActive}, срочно ${portfolio.urgentOrdersCreated}, завершение/приём ${shown(portfolio.completionToIntakePercent, '%')}`,
+        `SLA — вовремя ${sla.completedOnTime}, с опозданием ${sla.completedLate}, выполнение ${shown(sla.onTimePercent, '%')}, среднее время ${shown(sla.averageCompletionHours, ' ч')}, на паузе ${sla.activePaused}, эскалации ${sla.escalationCount}`,
+        `Качество — проверки ${quality.inspectionCount}, успешно ${shown(quality.inspectionPassPercent, '%')}, приёмки ${quality.acceptanceCount}, доработки ${quality.reworkCount}, отзывы ${quality.feedbackCount}, средняя оценка ${shown(quality.averageRating)}`,
+        `Жалобы — создано ${complaints.created}, закрыто ${complaints.closedInPeriod}, открыто ${complaints.openBacklog}, просрочено ${complaints.overdueOpen}, переоткрыто ${complaints.reopened}, по гарантии ${complaints.withinWarranty}`,
+        `Повторы — подтверждено ${repeatProblems.confirmedDuplicatePairs}, объединено заказов ${repeatProblems.consolidatedOrders}, связанных заявок ${repeatProblems.consolidatedRequests}`,
+        categories,
+        `PDCA — создано ${pdca.createdInPeriod}, завершено ${pdca.completedInPeriod}, активно ${pdca.active}, просрочено ${pdca.overdue}`,
+      ].join('\n')
+    : [
+        periodLabel,
+        `Hududlar: ${report.serviceAreaCount}`,
+        `Portfel — so‘rovlar ${portfolio.requestsReceived}, buyurtmalar ${portfolio.ordersCreated}, yakunlangan ${portfolio.completed}, bekor qilingan ${portfolio.cancelled}, faol ${portfolio.activeBacklog}, kechikkan ${portfolio.overdueActive}, shoshilinch ${portfolio.urgentOrdersCreated}, yakun/so‘rov ${shown(portfolio.completionToIntakePercent, '%')}`,
+        `SLA — vaqtida ${sla.completedOnTime}, kech ${sla.completedLate}, bajarilish ${shown(sla.onTimePercent, '%')}, o‘rtacha vaqt ${shown(sla.averageCompletionHours, ' soat')}, pauzada ${sla.activePaused}, eskalatsiya ${sla.escalationCount}`,
+        `Sifat — tekshiruvlar ${quality.inspectionCount}, o‘tgan ${shown(quality.inspectionPassPercent, '%')}, qabul ${quality.acceptanceCount}, qayta ish ${quality.reworkCount}, baholar ${quality.feedbackCount}, o‘rtacha baho ${shown(quality.averageRating)}`,
+        `Shikoyatlar — yaratildi ${complaints.created}, yopildi ${complaints.closedInPeriod}, ochiq ${complaints.openBacklog}, kechikkan ${complaints.overdueOpen}, qayta ochilgan ${complaints.reopened}, kafolatda ${complaints.withinWarranty}`,
+        `Takrorlar — tasdiqlangan ${repeatProblems.confirmedDuplicatePairs}, birlashtirilgan buyurtmalar ${repeatProblems.consolidatedOrders}, bog‘langan so‘rovlar ${repeatProblems.consolidatedRequests}`,
+        categories,
+        `PDCA — yaratildi ${pdca.createdInPeriod}, yakunlandi ${pdca.completedInPeriod}, faol ${pdca.active}, kechikkan ${pdca.overdue}`,
+      ].join('\n');
 }
 
 export function operationalReportCsv(report: OperationalReport): string {

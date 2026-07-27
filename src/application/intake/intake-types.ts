@@ -1,4 +1,4 @@
-export const supportedLanguages = ['uz-Latn', 'uz-Cyrl'] as const;
+export const supportedLanguages = ['uz-Latn', 'uz-Cyrl', 'ru'] as const;
 export type SupportedLanguage = (typeof supportedLanguages)[number];
 
 export const intakeSteps = [

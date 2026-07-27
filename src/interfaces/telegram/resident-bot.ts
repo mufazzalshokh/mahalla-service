@@ -8,8 +8,14 @@ import type {
 import type { RespondToInformationService } from '../../application/requests/respond-to-information-service.js';
 import type { ResidentQualityService } from '../../application/quality/quality-service.js';
 import { formatTashkentDateTime } from '../../domain/shared/tashkent-date-time.js';
+import {
+  botLanguageFromTelegram,
+  type BotLanguage,
+} from '../../application/localization/bot-language.js';
 import { ResidentTelegramController, type TelegramReply } from './resident-telegram-controller.js';
 import { translate } from './translations.js';
+import { residentQualityMessage } from './resident-quality-messages.js';
+import { TransientStore } from './transient-store.js';
 
 export interface ResidentBotOptions {
   readonly onError?: (error: Error, updateId: number) => void;
@@ -60,6 +66,11 @@ async function dispatch(
 export function createResidentBot(options: ResidentBotOptions): Bot {
   const bot = new Bot(options.token);
   const controller = new ResidentTelegramController(options.service);
+  const languages = new TransientStore<BotLanguage>(24 * 60 * 60 * 1_000, 5_000);
+  const language = (ctx: Context): BotLanguage => {
+    if (!ctx.from) return 'uz';
+    return languages.get(ctx.from.id.toString()) ?? botLanguageFromTelegram(ctx.from.language_code);
+  };
 
   bot.command('start', (ctx) => dispatch(ctx, { kind: 'start' }, controller));
   bot.command('status', (ctx) =>
@@ -70,7 +81,7 @@ export function createResidentBot(options: ResidentBotOptions): Bot {
     const [ticketNumber, ...informationParts] = ctx.match.trim().split(/\s+/u);
     const information = informationParts.join(' ').trim();
     if (!ticketNumber || information.length < 3) {
-      await ctx.reply('/respond TICKET qo‘shimcha ma’lumot');
+      await ctx.reply(residentQualityMessage(language(ctx), 'respond_usage'));
       return;
     }
     const request = await options.respondToInformation.execute(
@@ -78,24 +89,28 @@ export function createResidentBot(options: ResidentBotOptions): Bot {
       ticketNumber,
       information,
     );
-    await ctx.reply(`${request.ticketNumber}: ma’lumot qabul qilindi.`);
+    await ctx.reply(
+      residentQualityMessage(language(ctx), 'respond_saved', { reference: request.ticketNumber }),
+    );
   });
   bot.command('accept', async (ctx) => {
     if (!ctx.from || !options.quality) return;
     const orderNumber = ctx.match.trim().toUpperCase();
     if (!orderNumber) {
-      await ctx.reply('/accept ORDER');
+      await ctx.reply(residentQualityMessage(language(ctx), 'accept_usage'));
       return;
     }
     const order = await options.quality.accept(BigInt(ctx.from.id), orderNumber);
-    await ctx.reply(`${order.orderNumber}: ish qabul qilindi. Rahmat.`);
+    await ctx.reply(
+      residentQualityMessage(language(ctx), 'accepted', { reference: order.orderNumber }),
+    );
   });
   bot.command('rework', async (ctx) => {
     if (!ctx.from || !options.quality) return;
     const [rawOrderNumber, ...reasonParts] = ctx.match.trim().split(/\s+/u);
     const reason = reasonParts.join(' ').trim();
     if (!rawOrderNumber || reason.length < 3) {
-      await ctx.reply('/rework ORDER sabab');
+      await ctx.reply(residentQualityMessage(language(ctx), 'rework_usage'));
       return;
     }
     const order = await options.quality.requireRework(
@@ -103,13 +118,15 @@ export function createResidentBot(options: ResidentBotOptions): Bot {
       rawOrderNumber.toUpperCase(),
       reason,
     );
-    await ctx.reply(`${order.orderNumber}: qayta ishlash talabi qabul qilindi.`);
+    await ctx.reply(
+      residentQualityMessage(language(ctx), 'rework_accepted', { reference: order.orderNumber }),
+    );
   });
   bot.command('rate', async (ctx) => {
     if (!ctx.from || !options.quality) return;
     const [rawOrderNumber, rawRating, ...commentParts] = ctx.match.trim().split(/\s+/u);
     if (!rawOrderNumber || !rawRating) {
-      await ctx.reply('/rate ORDER 1..5 ixtiyoriy izoh');
+      await ctx.reply(residentQualityMessage(language(ctx), 'rate_usage'));
       return;
     }
     await options.quality.feedback(
@@ -118,14 +135,18 @@ export function createResidentBot(options: ResidentBotOptions): Bot {
       Number(rawRating),
       commentParts.join(' ').trim() || undefined,
     );
-    await ctx.reply(`${rawOrderNumber.toUpperCase()}: bahoyingiz saqlandi.`);
+    await ctx.reply(
+      residentQualityMessage(language(ctx), 'feedback_saved', {
+        reference: rawOrderNumber.toUpperCase(),
+      }),
+    );
   });
   bot.command('complaint', async (ctx) => {
     if (!ctx.from || !options.quality) return;
     const [rawOrderNumber, ...reasonParts] = ctx.match.trim().split(/\s+/u);
     const reason = reasonParts.join(' ').trim();
     if (!rawOrderNumber || reason.length < 5) {
-      await ctx.reply('/complaint ORDER shikoyat matni');
+      await ctx.reply(residentQualityMessage(language(ctx), 'complaint_usage'));
       return;
     }
     const complaint = await options.quality.complaint(
@@ -134,24 +155,37 @@ export function createResidentBot(options: ResidentBotOptions): Bot {
       reason,
     );
     await ctx.reply(
-      `${complaint.code}: shikoyat qabul qilindi. Ko‘rib chiqish muddati ${formatTashkentDateTime(complaint.reviewDueAt)}.`,
+      residentQualityMessage(language(ctx), 'complaint_created', {
+        dueAt: formatTashkentDateTime(complaint.reviewDueAt),
+        reference: complaint.code,
+      }),
     );
   });
   bot.command('warranty', async (ctx) => {
     if (!ctx.from || !options.quality) return;
     const orderNumber = ctx.match.trim().toUpperCase();
     if (!orderNumber) {
-      await ctx.reply('/warranty ORDER');
+      await ctx.reply(residentQualityMessage(language(ctx), 'warranty_usage'));
       return;
     }
     const warranty = await options.quality.warranty(BigInt(ctx.from.id), orderNumber);
     await ctx.reply(
-      `${orderNumber}: kafolat ${formatTashkentDateTime(warranty.endsAt)} gacha (${warranty.warrantyDays} kun).`,
+      residentQualityMessage(language(ctx), 'warranty', {
+        days: warranty.warrantyDays,
+        dueAt: formatTashkentDateTime(warranty.endsAt),
+        reference: orderNumber,
+      }),
     );
   });
-  bot.on('callback_query:data', (ctx) =>
-    dispatch(ctx, { data: ctx.callbackQuery.data, kind: 'callback' }, controller),
-  );
+  bot.on('callback_query:data', (ctx) => {
+    if (ctx.from && ctx.callbackQuery.data.startsWith('lang:')) {
+      const selected = ctx.callbackQuery.data.slice('lang:'.length);
+      if (selected === 'ru' || selected === 'uz-Latn') {
+        languages.set(ctx.from.id.toString(), selected === 'ru' ? 'ru' : 'uz');
+      }
+    }
+    return dispatch(ctx, { data: ctx.callbackQuery.data, kind: 'callback' }, controller);
+  });
   bot.on('message:contact', (ctx) =>
     dispatch(
       ctx,
@@ -197,7 +231,7 @@ export function createResidentBot(options: ResidentBotOptions): Bot {
   bot.catch(async ({ error, ctx }) => {
     const normalized = error instanceof Error ? error : new Error('Unknown Telegram handler error');
     options.onError?.(normalized, ctx.update.update_id);
-    await ctx.reply(translate('uz-Latn', 'unexpected_error'));
+    await ctx.reply(translate(language(ctx) === 'ru' ? 'ru' : 'uz-Latn', 'unexpected_error'));
   });
   return bot;
 }

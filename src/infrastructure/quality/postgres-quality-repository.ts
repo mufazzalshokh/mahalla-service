@@ -84,6 +84,7 @@ export class PostgresQualityRepository implements QualityRepository {
       .select({
         code: qualityChecklistItems.code,
         isRequired: qualityChecklistItems.isRequired,
+        labelRu: qualityChecklistItems.labelRu,
         labelUzCyrl: qualityChecklistItems.labelUzCyrl,
         labelUzLatn: qualityChecklistItems.labelUzLatn,
       })

@@ -202,4 +202,36 @@ describe.runIf(Boolean(databaseUrl))('CP-03 resident intake persistence', () => 
     expect(typeof receipt?.response.key).toBe('string');
     expect(typeof receipt?.response.language).toBe('string');
   });
+
+  it('persists Russian selection and returns Russian category labels', async () => {
+    const telegramUserId = runId + 3n;
+    let updateId = runId * 100n + 40_000n;
+    await execute(telegramUserId, updateId++, { kind: 'start' });
+    const privacy = await execute(telegramUserId, updateId++, {
+      data: 'lang:ru',
+      kind: 'callback',
+    });
+    expect(privacy.language).toBe('ru');
+    await execute(telegramUserId, updateId++, { data: 'consent:accept', kind: 'callback' });
+    const categories = await execute(telegramUserId, updateId, {
+      contactTelegramUserId: telegramUserId,
+      kind: 'contact',
+      phone: '+998901234568',
+    });
+    expect(categories.language).toBe('ru');
+    expect(categories.categories?.map(({ label }) => label)).toEqual([
+      'Сантехника',
+      'Электрические услуги',
+      'Ремонт',
+      'Благоустройство',
+    ]);
+    const [user] = await client.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.telegramUserId, telegramUserId));
+    if (!user) throw new Error('Russian resident user was not persisted');
+    await expect(
+      client.db.select().from(residentProfiles).where(eq(residentProfiles.userId, user.id)),
+    ).resolves.toMatchObject([{ language: 'ru' }]);
+  });
 });

@@ -28,7 +28,9 @@ const policy: QualityPolicyRecord = {
   acceptanceMode: 'RESIDENT_OR_OPERATOR',
   complaintReviewHours: 48,
   inspectionRequired: true,
-  items: [{ code: 'WORK', isRequired: true, labelUzCyrl: 'Иш', labelUzLatn: 'Ish' }],
+  items: [
+    { code: 'WORK', isRequired: true, labelRu: 'Работа', labelUzCyrl: 'Иш', labelUzLatn: 'Ish' },
+  ],
   latestPassingInspectionId: 'inspection-id',
   reworkTargetHours: 24,
   templateId: 'template',

@@ -45,6 +45,7 @@ function next(
 function languageFromCallback(data: string): SupportedLanguage | undefined {
   if (data === 'lang:uz-Latn') return 'uz-Latn';
   if (data === 'lang:uz-Cyrl') return 'uz-Cyrl';
+  if (data === 'lang:ru') return 'ru';
   return undefined;
 }
 
@@ -90,7 +91,7 @@ export function planResidentUpdate(
       response: response('choose_language', defaultLanguage, {
         actions: [
           { data: 'lang:uz-Latn', labelKey: "O'zbekcha" },
-          { data: 'lang:uz-Cyrl', labelKey: 'Ўзбекча' },
+          { data: 'lang:ru', labelKey: 'Русский' },
         ],
       }),
       session,

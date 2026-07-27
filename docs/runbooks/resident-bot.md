@@ -21,7 +21,7 @@ Only one long-polling resident-bot process may run for a token. The database ide
 ## Demonstration flow
 
 1. Send `/start`.
-2. Select Uzbek Latin or Cyrillic.
+2. Select Uzbek or Russian. Uzbek Cyrillic remains supported for existing stored sessions.
 3. Accept the draft privacy notice (synthetic demonstration data only until MCK/legal approval).
 4. Share the same Telegram account's contact.
 5. Select a category, describe the issue, and send address/location.
@@ -51,4 +51,7 @@ Only one long-polling resident-bot process may run for a token. The database ide
 - The privacy wording is a draft and real resident data is prohibited until OQ-003/OQ-004 are approved.
 - Telegram-held file IDs are pilot metadata, not durable contractual evidence.
 - Quality commands verify that the Telegram account owns a request linked to the order.
+- Russian selection is persisted in the resident profile/session; category names and resident
+  lifecycle/quality replies are localized. Telegram-client language is only a fallback before a
+  selection is made.
 - One rating and one open complaint per resident/order are allowed. A complaint does not automatically reopen work.

@@ -54,8 +54,42 @@ const cyrillicTemplates: Readonly<Record<NotificationTemplateKey, Template>> = {
     `${payload.reference}: ҳолат ${payload.status ?? 'янгиланди'}.`,
 };
 
+const russianTemplates: Readonly<Record<NotificationTemplateKey, Template>> = {
+  'executor.assignment_created': ({ payload }) =>
+    `${payload.reference}: вам назначено новое задание.${payload.dueAt ? ` Срок: ${dueAt(payload.dueAt)}.` : ''}`,
+  'executor.deadline_reminder': ({ payload }) =>
+    `${payload.reference}: срок задания приближается.${payload.dueAt ? ` Срок: ${dueAt(payload.dueAt)}.` : ''}`,
+  'executor.rework_required': ({ payload }) =>
+    `${payload.reference}: требуется повторная работа.${payload.dueAt ? ` Срок: ${dueAt(payload.dueAt)}.` : ''}`,
+  'operator.assignment_rejected': ({ payload }) =>
+    `${payload.reference}: исполнитель отказался от задания. Назначьте другого исполнителя.`,
+  'operator.complaint_created': ({ payload }) =>
+    `${payload.reference}: новая жалоба. Срок рассмотрения: ${dueAt(payload.dueAt) ?? 'не указан'}.`,
+  'operator.complaint_review_overdue': ({ payload }) =>
+    `${payload.reference}: срок рассмотрения жалобы истёк.`,
+  'operator.complaint_review_reminder': ({ payload }) =>
+    `${payload.reference}: приближается срок рассмотрения жалобы.`,
+  'operator.deadline_overdue': ({ payload }) =>
+    `${payload.reference}: срок заказа истёк. Статус: ${payload.status ?? 'неизвестен'}.`,
+  'operator.order_blocked': ({ payload }) =>
+    `${payload.reference}: работа приостановлена из-за препятствия.`,
+  'resident.acceptance_requested': ({ payload }) =>
+    `${payload.reference}: работа завершена. Проверьте результат через /status, примите его или запросите доработку.`,
+  'resident.complaint_decided': ({ payload }) =>
+    `${payload.reference}: статус жалобы ${payload.status ?? 'обновлён'}.`,
+  'resident.information_requested': ({ payload }) =>
+    `${payload.reference}: нужна дополнительная информация. Ответьте по инструкции в боте.`,
+  'resident.status_changed': ({ payload }) =>
+    `${payload.reference}: статус ${payload.status ?? 'обновлён'}.`,
+};
+
 export function renderTelegramNotification(notification: ClaimedNotification): string {
-  const templates = notification.language === 'uz-Cyrl' ? cyrillicTemplates : latinTemplates;
+  const templates =
+    notification.language === 'ru'
+      ? russianTemplates
+      : notification.language === 'uz-Cyrl'
+        ? cyrillicTemplates
+        : latinTemplates;
   return templates[notification.payload.templateKey](notification);
 }
 

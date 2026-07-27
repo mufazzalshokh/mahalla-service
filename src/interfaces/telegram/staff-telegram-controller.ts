@@ -9,8 +9,9 @@ import type { InspectionItemInput } from '../../domain/quality/quality-policy.js
 import { pdcaStages, type PdcaStage } from '../../domain/pdca/pdca-policy.js';
 import type { ReportPeriodKind } from '../../domain/reporting/reporting-period.js';
 import { parseTashkentDateTime } from '../../domain/shared/tashkent-date-time.js';
+import type { BotLanguage } from '../../application/localization/bot-language.js';
 
-const help = [
+const helpCommands = [
   '/queue',
   '/validate TICKET',
   '/info TICKET savol',
@@ -49,6 +50,10 @@ const help = [
   '/reopen COMPLAINT_CODE sabab',
   '/closecomplaint COMPLAINT_CODE resolve|reject sabab',
 ].join('\n');
+
+function help(language: BotLanguage): string {
+  return `${language === 'ru' ? 'Используйте кнопки меню. Команды для опытных пользователей:' : 'Menyu tugmalaridan foydalaning. Tajribali foydalanuvchilar uchun buyruqlar:'}\n${helpCommands}`;
+}
 
 function required(value: string | undefined, usage: string): string {
   if (!value?.trim()) throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
@@ -339,15 +344,24 @@ function parse(text: string): StaffOperationCommand | 'help' {
 export class StaffTelegramController {
   constructor(private readonly operations: StaffOperations) {}
 
-  async handle(telegramUserId: bigint, text: string): Promise<StaffOperationResult> {
+  async handle(
+    telegramUserId: bigint,
+    text: string,
+    language: BotLanguage = 'uz',
+  ): Promise<StaffOperationResult> {
     const command = parse(text);
-    return command === 'help' ? help : this.operations.execute(telegramUserId, command);
+    return command === 'help'
+      ? help(language)
+      : language === 'uz'
+        ? this.operations.execute(telegramUserId, command)
+        : this.operations.execute(telegramUserId, command, language);
   }
 
   async handleEvidence(
     telegramUserId: bigint,
     caption: string,
     photo: { readonly fileId: string; readonly fileSize: number; readonly fileUniqueId: string },
+    language: BotLanguage = 'uz',
   ): Promise<string> {
     const [command, rawOrderNumber, rawPhase, ...noteParts] = caption.trim().split(/\s+/u);
     if (command?.split('@')[0]?.toLocaleLowerCase('en-US') !== '/evidence') {
@@ -361,7 +375,7 @@ export class StaffTelegramController {
         'Evidence phase BEFORE yoki AFTER bo‘lishi kerak',
       );
     }
-    const result = await this.operations.execute(telegramUserId, {
+    const operation = {
       evidence: {
         fileId: photo.fileId,
         fileSize: photo.fileSize,
@@ -372,7 +386,11 @@ export class StaffTelegramController {
       },
       kind: 'work-evidence',
       orderNumber,
-    });
+    } as const;
+    const result =
+      language === 'uz'
+        ? await this.operations.execute(telegramUserId, operation)
+        : await this.operations.execute(telegramUserId, operation, language);
     if (typeof result !== 'string') throw new Error('Evidence operation returned a document');
     return result;
   }

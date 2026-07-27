@@ -56,7 +56,7 @@ const responseSchema = z.object({
     'ticket_not_found',
     'start_required',
   ]),
-  language: z.enum(['uz-Latn', 'uz-Cyrl']),
+  language: z.enum(['uz-Latn', 'uz-Cyrl', 'ru']),
   parameters: z.record(z.string(), z.string()).optional(),
   requestContact: z.boolean().optional(),
 });
@@ -177,6 +177,7 @@ export class PostgresResidentIntakeUnitOfWork implements ResidentIntakeUnitOfWor
       const categoryRows = await tx
         .select({
           id: serviceCategories.id,
+          nameRu: serviceCategories.nameRu,
           nameUzCyrl: serviceCategories.nameUzCyrl,
           nameUzLatn: serviceCategories.nameUzLatn,
         })
@@ -186,7 +187,12 @@ export class PostgresResidentIntakeUnitOfWork implements ResidentIntakeUnitOfWor
       const language = session?.language ?? 'uz-Latn';
       const categories = categoryRows.map((category) => ({
         id: category.id,
-        label: language === 'uz-Cyrl' ? category.nameUzCyrl : category.nameUzLatn,
+        label:
+          language === 'ru'
+            ? category.nameRu
+            : language === 'uz-Cyrl'
+              ? category.nameUzCyrl
+              : category.nameUzLatn,
       }));
 
       const ticket =

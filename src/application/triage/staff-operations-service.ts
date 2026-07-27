@@ -21,6 +21,8 @@ import type { ReportPeriodKind } from '../../domain/reporting/reporting-period.j
 import type { PdcaActionInput, PdcaStage } from '../../domain/pdca/pdca-policy.js';
 import type { PdcaService } from '../pdca/pdca-service.js';
 import { formatTashkentDateTime } from '../../domain/shared/tashkent-date-time.js';
+import type { BotLanguage } from '../localization/bot-language.js';
+import { staffMessage, staffStatus } from './staff-messages.js';
 
 export interface StaffDocumentResult {
   readonly caption: string;
@@ -32,7 +34,11 @@ export interface StaffDocumentResult {
 export type StaffOperationResult = string | StaffDocumentResult;
 
 export interface StaffOperations {
-  execute(telegramUserId: bigint, command: StaffOperationCommand): Promise<StaffOperationResult>;
+  execute(
+    telegramUserId: bigint,
+    command: StaffOperationCommand,
+    language?: BotLanguage,
+  ): Promise<StaffOperationResult>;
 }
 
 export type StaffOperationCommand =
@@ -142,21 +148,24 @@ export class StaffOperationsService implements StaffOperations {
   async execute(
     telegramUserId: bigint,
     command: StaffOperationCommand,
+    language: BotLanguage = 'uz',
   ): Promise<StaffOperationResult> {
     const principal = await this.dependencies.principals.loadByTelegramUserId(telegramUserId);
     if (!principal) throw new AuthorizationError('active staff account');
     switch (command.kind) {
       case 'queue': {
         const requests = await this.dependencies.listQueue.execute(principal);
-        if (requests.length === 0) return 'Tekshiruv navbati bo‘sh.';
-        return requests.map(({ status, ticketNumber }) => `${ticketNumber} — ${status}`).join('\n');
+        if (requests.length === 0) return staffMessage(language, 'no_queue');
+        return requests
+          .map(({ status, ticketNumber }) => `${ticketNumber} — ${staffStatus(language, status)}`)
+          .join('\n');
       }
       case 'validate': {
         const request = await this.dependencies.transitionRequest.execute(
           { data: {}, ticketNumber: command.ticketNumber, to: 'VALIDATING' },
           principal,
         );
-        return `${request.ticketNumber}: tekshiruv boshlandi.`;
+        return staffMessage(language, 'validation_started', { reference: request.ticketNumber });
       }
       case 'information': {
         const request = await this.dependencies.transitionRequest.execute(
@@ -167,7 +176,7 @@ export class StaffOperationsService implements StaffOperations {
           },
           principal,
         );
-        return `${request.ticketNumber}: qo‘shimcha ma’lumot so‘raldi.`;
+        return staffMessage(language, 'information_requested', { reference: request.ticketNumber });
       }
       case 'triage': {
         const assessment = await this.dependencies.assessPriority.execute(
@@ -180,7 +189,11 @@ export class StaffOperationsService implements StaffOperations {
           },
           principal,
         );
-        return `${command.ticketNumber}: ustuvorlik ${assessment.effectiveScore} (${assessment.effectiveBand}).`;
+        return staffMessage(language, 'priority_set', {
+          reference: command.ticketNumber,
+          score: assessment.effectiveScore,
+          status: staffStatus(language, assessment.effectiveBand),
+        });
       }
       case 'duplicates': {
         const suggestions = await this.dependencies.suggestDuplicates.execute(
@@ -188,11 +201,11 @@ export class StaffOperationsService implements StaffOperations {
           principal,
         );
         if (suggestions.length === 0)
-          return `${command.ticketNumber}: o‘xshash murojaat topilmadi.`;
+          return staffMessage(language, 'no_duplicates', { reference: command.ticketNumber });
         return suggestions
           .map(
             ({ candidateTicketNumber, score, status }) =>
-              `${candidateTicketNumber} — ${score}% (${status})`,
+              `${candidateTicketNumber} — ${score}% (${staffStatus(language, status)})`,
           )
           .join('\n');
       }
@@ -203,7 +216,10 @@ export class StaffOperationsService implements StaffOperations {
           command.decision,
           principal,
         );
-        return `${match.candidateTicketNumber}: ${match.status}.`;
+        return staffMessage(language, 'duplicate_decided', {
+          reference: match.candidateTicketNumber,
+          status: staffStatus(language, match.status),
+        });
       }
       case 'override': {
         const assessment = await this.dependencies.overridePriority.execute(
@@ -213,14 +229,22 @@ export class StaffOperationsService implements StaffOperations {
           command.reason,
           principal,
         );
-        return `${command.ticketNumber}: yangi ustuvorlik ${assessment.effectiveScore} (${assessment.effectiveBand}).`;
+        return staffMessage(language, 'priority_overridden', {
+          reference: command.ticketNumber,
+          score: assessment.effectiveScore,
+          status: staffStatus(language, assessment.effectiveBand),
+        });
       }
       case 'register': {
         const result = await this.dependencies.registerRequest.execute(
           command.ticketNumber,
           principal,
         );
-        return `${result.ticketNumber}: ${result.orderNumber}${result.linkedToExistingOrder ? ' bilan birlashtirildi' : ' yaratildi'}.`;
+        return staffMessage(
+          language,
+          result.linkedToExistingOrder ? 'registered_linked' : 'registered_new',
+          { order: result.orderNumber, reference: result.ticketNumber },
+        );
       }
       case 'reject': {
         const request = await this.dependencies.transitionRequest.execute(
@@ -231,7 +255,7 @@ export class StaffOperationsService implements StaffOperations {
           },
           principal,
         );
-        return `${request.ticketNumber}: rad etildi.`;
+        return staffMessage(language, 'rejected', { reference: request.ticketNumber });
       }
       case 'executors': {
         const executors = await this.dependencies.execution.listEligibleExecutors(
@@ -239,7 +263,7 @@ export class StaffOperationsService implements StaffOperations {
           principal,
         );
         return executors.length === 0
-          ? 'Mos va mavjud ijrochi topilmadi.'
+          ? staffMessage(language, 'no_executors')
           : executors.map(({ code, displayName }) => `${code} — ${displayName}`).join('\n');
       }
       case 'assign': {
@@ -249,16 +273,19 @@ export class StaffOperationsService implements StaffOperations {
           command.dueAt,
           principal,
         );
-        return `${order.orderNumber}: ijrochi tayinlandi, muddat ${formatTashkentDateTime(command.dueAt)}.`;
+        return staffMessage(language, 'assignment_created', {
+          dueAt: formatTashkentDateTime(command.dueAt),
+          reference: order.orderNumber,
+        });
       }
       case 'my-orders': {
         const orders = await this.dependencies.execution.listMine(principal);
         return orders.length === 0
-          ? 'Sizga biriktirilgan faol buyurtma yo‘q.'
+          ? staffMessage(language, 'no_orders')
           : orders
               .map(
                 ({ dueAt, orderNumber, status }) =>
-                  `${orderNumber} — ${status}${dueAt ? ` — ${formatTashkentDateTime(dueAt)}` : ''}`,
+                  `${orderNumber} — ${staffStatus(language, status)}${dueAt ? ` — ${formatTashkentDateTime(dueAt)}` : ''}`,
               )
               .join('\n');
       }
@@ -269,7 +296,7 @@ export class StaffOperationsService implements StaffOperations {
           {},
           principal,
         );
-        return `${order.orderNumber}: topshiriq qabul qilindi.`;
+        return staffMessage(language, 'assignment_accepted', { reference: order.orderNumber });
       }
       case 'decline-assignment': {
         const order = await this.dependencies.execution.transition(
@@ -278,11 +305,11 @@ export class StaffOperationsService implements StaffOperations {
           { reason: command.reason },
           principal,
         );
-        return `${order.orderNumber}: topshiriq rad etildi.`;
+        return staffMessage(language, 'assignment_declined', { reference: order.orderNumber });
       }
       case 'progress':
         await this.dependencies.execution.addProgress(command.orderNumber, command.note, principal);
-        return `${command.orderNumber}: ish yozuvi saqlandi.`;
+        return staffMessage(language, 'progress_saved', { reference: command.orderNumber });
       case 'block': {
         const order = await this.dependencies.execution.transition(
           command.orderNumber,
@@ -290,7 +317,7 @@ export class StaffOperationsService implements StaffOperations {
           { blockerReason: command.blockerReason },
           principal,
         );
-        return `${order.orderNumber}: ish to‘siq sababli pauzaga qo‘yildi.`;
+        return staffMessage(language, 'blocked', { reference: order.orderNumber });
       }
       case 'unblock': {
         const order = await this.dependencies.execution.transition(
@@ -299,7 +326,7 @@ export class StaffOperationsService implements StaffOperations {
           { ...(command.note ? { progressNote: command.note } : {}) },
           principal,
         );
-        return `${order.orderNumber}: ish davom ettirildi.`;
+        return staffMessage(language, 'unblocked', { reference: order.orderNumber });
       }
       case 'complete-work': {
         const order = await this.dependencies.execution.transition(
@@ -308,7 +335,7 @@ export class StaffOperationsService implements StaffOperations {
           { completionSummary: command.summary },
           principal,
         );
-        return `${order.orderNumber}: yakunlash tekshiruvga yuborildi.`;
+        return staffMessage(language, 'completion_submitted', { reference: order.orderNumber });
       }
       case 'work-evidence':
         await this.dependencies.execution.addEvidence(
@@ -316,15 +343,18 @@ export class StaffOperationsService implements StaffOperations {
           command.evidence,
           principal,
         );
-        return `${command.orderNumber}: ${command.evidence.phase} fotosi saqlandi.`;
+        return staffMessage(language, 'evidence_saved', {
+          phase: staffStatus(language, command.evidence.phase),
+          reference: command.orderNumber,
+        });
       case 'overdue': {
         const escalations = await this.dependencies.execution.scanOverdue(principal);
         return escalations.length === 0
-          ? 'Muddati o‘tgan faol buyurtma yo‘q.'
+          ? staffMessage(language, 'no_overdue')
           : escalations
               .map(
                 ({ dueAt, orderNumber, status }) =>
-                  `${orderNumber} — ${formatTashkentDateTime(dueAt)} (${status})`,
+                  `${orderNumber} — ${formatTashkentDateTime(dueAt)} (${staffStatus(language, status)})`,
               )
               .join('\n');
       }
@@ -334,7 +364,9 @@ export class StaffOperationsService implements StaffOperations {
           'ACKNOWLEDGED',
           principal,
         );
-        return `${escalation.orderNumber}: kechikish ogohlantirishi qabul qilindi.`;
+        return staffMessage(language, 'overdue_acknowledged', {
+          reference: escalation.orderNumber,
+        });
       }
       case 'resolve-overdue': {
         const escalation = await this.dependencies.execution.updateDeadlineEscalation(
@@ -342,12 +374,12 @@ export class StaffOperationsService implements StaffOperations {
           'RESOLVED',
           principal,
         );
-        return `${escalation.orderNumber}: kechikish ogohlantirishi yopildi.`;
+        return staffMessage(language, 'overdue_resolved', { reference: escalation.orderNumber });
       }
       case 'failed-notifications': {
         const failures = await this.dependencies.notifications.listDeadLetters(principal);
         return failures.length === 0
-          ? 'Yuborilmagan xabar yo‘q.'
+          ? staffMessage(language, 'no_failed_notifications')
           : failures
               .map(
                 ({ attemptCount, code, eventType, lastErrorCode }) =>
@@ -357,15 +389,19 @@ export class StaffOperationsService implements StaffOperations {
       }
       case 'retry-notification':
         await this.dependencies.notifications.recover(command.code, principal);
-        return `${command.code}: xabar qayta yuborish navbatiga qo‘yildi.`;
+        return staffMessage(language, 'retry_queued', { reference: command.code });
       case 'report':
         return formatOperationalReport(
           await this.dependencies.reporting.report(command.period, principal),
+          language,
         );
       case 'report-export': {
         const exported = await this.dependencies.reporting.exportCsv(command.period, principal);
         return {
-          caption: `${command.period === 'WEEK' ? 'Haftalik' : 'Oylik'} operatsion hisobot`,
+          caption:
+            language === 'ru'
+              ? `${command.period === 'WEEK' ? 'Недельный' : 'Месячный'} операционный отчёт`
+              : `${command.period === 'WEEK' ? 'Haftalik' : 'Oylik'} operatsion hisobot`,
           content: exported.content,
           fileName: exported.fileName,
           kind: 'document',
@@ -374,11 +410,11 @@ export class StaffOperationsService implements StaffOperations {
       case 'pdca-list': {
         const actions = await this.dependencies.pdca.list(principal);
         return actions.length === 0
-          ? 'Faol PDCA harakati yo‘q.'
+          ? staffMessage(language, 'no_pdca')
           : actions
               .map(
                 ({ code, dueAt, overdue, stage, title }) =>
-                  `${code} — ${stage} — ${formatTashkentDateTime(dueAt)}${overdue ? ' — MUDDAT O‘TGAN' : ''} — ${title}`,
+                  `${code} — ${staffStatus(language, stage)} — ${formatTashkentDateTime(dueAt)}${overdue ? ` — ${language === 'ru' ? 'СРОК ИСТЁК' : 'MUDDAT O‘TGAN'}` : ''} — ${title}`,
               )
               .join('\n');
       }
@@ -388,7 +424,10 @@ export class StaffOperationsService implements StaffOperations {
           command.input,
           principal,
         );
-        return `${action.code}: PDCA PLAN yaratildi, muddat ${formatTashkentDateTime(action.dueAt)}.`;
+        return staffMessage(language, 'pdca_created', {
+          dueAt: formatTashkentDateTime(action.dueAt),
+          reference: action.code,
+        });
       }
       case 'pdca-transition': {
         const action = await this.dependencies.pdca.transition(
@@ -397,15 +436,18 @@ export class StaffOperationsService implements StaffOperations {
           command.reason,
           principal,
         );
-        return `${action.code}: PDCA bosqichi ${action.stage}.`;
+        return staffMessage(language, 'pdca_transitioned', {
+          reference: action.code,
+          status: staffStatus(language, action.stage),
+        });
       }
       case 'quality-checklist': {
         const policy = await this.dependencies.quality.checklist(command.orderNumber, principal);
         return [
-          `V${policy.templateVersion}${policy.inspectionRequired ? ' — tekshiruv majburiy' : ''}`,
+          `V${policy.templateVersion}${policy.inspectionRequired ? ` — ${language === 'ru' ? 'проверка обязательна' : 'tekshiruv majburiy'}` : ''}`,
           ...policy.items.map(
-            ({ code, isRequired, labelUzLatn }) =>
-              `${code} — ${labelUzLatn}${isRequired ? ' *' : ''}`,
+            ({ code, isRequired, labelRu, labelUzLatn }) =>
+              `${code} — ${language === 'ru' ? labelRu : labelUzLatn}${isRequired ? ' *' : ''}`,
           ),
         ].join('\n');
       }
@@ -416,7 +458,11 @@ export class StaffOperationsService implements StaffOperations {
           command.summary,
           principal,
         );
-        return `${command.orderNumber}: tekshiruv #${inspection.attempt} — ${inspection.outcome}.`;
+        return staffMessage(language, 'inspection_saved', {
+          attempt: inspection.attempt,
+          reference: command.orderNumber,
+          status: staffStatus(language, inspection.outcome),
+        });
       }
       case 'approve-work': {
         const order = await this.dependencies.quality.accept(
@@ -424,7 +470,7 @@ export class StaffOperationsService implements StaffOperations {
           'OPERATOR',
           principal,
         );
-        return `${order.orderNumber}: ish qabul qilindi va kafolat boshlandi.`;
+        return staffMessage(language, 'work_approved', { reference: order.orderNumber });
       }
       case 'require-rework': {
         const order = await this.dependencies.quality.requireRework(
@@ -433,7 +479,7 @@ export class StaffOperationsService implements StaffOperations {
           'OPERATOR',
           principal,
         );
-        return `${order.orderNumber}: qayta ishlash talab qilindi.`;
+        return staffMessage(language, 'rework_required', { reference: order.orderNumber });
       }
       case 'start-rework': {
         const order = await this.dependencies.execution.transition(
@@ -442,16 +488,16 @@ export class StaffOperationsService implements StaffOperations {
           {},
           principal,
         );
-        return `${order.orderNumber}: qayta ishlash boshlandi.`;
+        return staffMessage(language, 'rework_started', { reference: order.orderNumber });
       }
       case 'complaints': {
         const complaints = await this.dependencies.quality.listComplaints(principal);
         return complaints.length === 0
-          ? 'Ochiq shikoyat yo‘q.'
+          ? staffMessage(language, 'no_complaints')
           : complaints
               .map(
                 ({ code, order, reviewDueAt, withinWarranty }) =>
-                  `${code} — ${order.orderNumber} — ${formatTashkentDateTime(reviewDueAt)} — ${withinWarranty ? 'kafolatda' : 'kafolatdan tashqari'}`,
+                  `${code} — ${order.orderNumber} — ${formatTashkentDateTime(reviewDueAt)} — ${withinWarranty ? (language === 'ru' ? 'по гарантии' : 'kafolatda') : language === 'ru' ? 'вне гарантии' : 'kafolatdan tashqari'}`,
               )
               .join('\n');
       }
@@ -461,7 +507,7 @@ export class StaffOperationsService implements StaffOperations {
           command.reason,
           principal,
         );
-        return `${order.orderNumber}: shikoyat asosida nazoratli qayta ish ochildi.`;
+        return staffMessage(language, 'complaint_reopened', { reference: order.orderNumber });
       }
       case 'complaint-decision':
         await this.dependencies.quality.decideComplaint(
@@ -470,7 +516,10 @@ export class StaffOperationsService implements StaffOperations {
           command.reason,
           principal,
         );
-        return `${command.complaintCode}: shikoyat ${command.outcome}.`;
+        return staffMessage(language, 'complaint_decided', {
+          reference: command.complaintCode,
+          status: staffStatus(language, command.outcome),
+        });
     }
   }
 }

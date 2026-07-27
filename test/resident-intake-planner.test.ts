@@ -33,6 +33,10 @@ describe('resident intake planner', () => {
   it('plans the complete resident flow through exactly one submission intent', () => {
     let result = plan(1n, { kind: 'start' });
     expect(result.response.key).toBe('choose_language');
+    expect(result.response.actions).toEqual([
+      { data: 'lang:uz-Latn', labelKey: "O'zbekcha" },
+      { data: 'lang:ru', labelKey: 'Русский' },
+    ]);
 
     result = plan(2n, { data: 'lang:uz-Cyrl', kind: 'callback' }, result.session);
     expect(result).toMatchObject({
@@ -78,6 +82,15 @@ describe('resident intake planner', () => {
     result = plan(10n, { data: 'submit:confirm', kind: 'callback' }, result.session);
     expect(result.submit).toBe(true);
     expect(result.session.step).toBe('SUBMITTED');
+  });
+
+  it('supports Russian as a persisted intake language', () => {
+    const start = plan(1n, { kind: 'start' });
+    const selected = plan(2n, { data: 'lang:ru', kind: 'callback' }, start.session);
+    expect(selected).toMatchObject({
+      response: { key: 'privacy_notice', language: 'ru' },
+      session: { language: 'ru', step: 'ACCEPT_PRIVACY' },
+    });
   });
 
   it('enforces consent, contact ownership, category and text validation', () => {

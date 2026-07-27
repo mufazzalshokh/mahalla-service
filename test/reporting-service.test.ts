@@ -81,7 +81,8 @@ describe('ReportingService', () => {
     expect(exported.fileName).toBe('mck-month-01.07.2026.csv');
     expect(exported.content).toContain('category:=DANGER');
     expect(exported.content).toMatch(/\r\n$/u);
-    expect(formatOperationalReport(report)).toContain('SLA — on time 1');
+    expect(formatOperationalReport(report)).toContain('SLA — vaqtida 1');
+    expect(formatOperationalReport(report, 'ru')).toContain('SLA — вовремя 1');
   });
 
   it('keeps read and export permissions separate', async () => {

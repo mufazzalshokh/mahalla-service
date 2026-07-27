@@ -21,6 +21,7 @@ describe('Telegram notification adapter', () => {
   it('renders bounded templates without arbitrary business text', () => {
     expect(renderTelegramNotification(notification)).toBe('REQ-1: holat VALIDATING.');
     expect(renderTelegramNotification({ ...notification, language: 'uz-Cyrl' })).toContain('ҳолат');
+    expect(renderTelegramNotification({ ...notification, language: 'ru' })).toContain('статус');
   });
 
   it('renders notification deadlines in Tashkent local time', () => {
@@ -39,7 +40,7 @@ describe('Telegram notification adapter', () => {
 
   it('renders every approved template in both scripts with and without optional fields', () => {
     for (const templateKey of notificationTemplateKeys) {
-      for (const language of ['uz-Latn', 'uz-Cyrl'] as const) {
+      for (const language of ['uz-Latn', 'uz-Cyrl', 'ru'] as const) {
         expect(
           renderTelegramNotification({
             ...notification,

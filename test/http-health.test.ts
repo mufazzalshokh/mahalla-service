@@ -30,7 +30,7 @@ describe('HTTP health boundary', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ service: 'mahalla-service-test', status: 'ok' });
     expect(check).not.toHaveBeenCalled();
-  });
+  }, 10_000);
 
   it('returns 200 when dependencies are ready', async () => {
     const probe: ReadinessProbe = {

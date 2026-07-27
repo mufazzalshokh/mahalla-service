@@ -103,7 +103,7 @@ describe('staff reporting and PDCA operations', () => {
     const service = new StaffOperationsService(dependencies);
 
     await expect(service.execute(1n, { kind: 'report', period: 'WEEK' })).resolves.toContain(
-      'No category activity',
+      'Toifalar bo‘yicha faollik yo‘q',
     );
     await expect(service.execute(1n, { kind: 'report-export', period: 'MONTH' })).resolves.toEqual({
       caption: 'Oylik operatsion hisobot',
@@ -136,7 +136,10 @@ describe('staff reporting and PDCA operations', () => {
         reason: 'Work started',
         to: 'DO',
       }),
-    ).resolves.toContain('DO');
+    ).resolves.toContain('bajarish');
+    await expect(service.execute(1n, { kind: 'report', period: 'WEEK' }, 'ru')).resolves.toContain(
+      'Нет активности по категориям',
+    );
     expect(reporting.report).toHaveBeenCalledWith('WEEK', principal);
     expect(reporting.exportCsv).toHaveBeenCalledWith('MONTH', principal);
     expect(pdca.create).toHaveBeenCalledOnce();

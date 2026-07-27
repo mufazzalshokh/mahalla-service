@@ -1,6 +1,37 @@
 import type { IntakeResponse, SupportedLanguage } from '../../application/intake/intake-types.js';
 
 const resources: Readonly<Record<SupportedLanguage, Readonly<Record<string, string>>>> = {
+  ru: {
+    add_photos: 'Отправьте до 3 фотографий JPEG/PNG или нажмите «Готово».',
+    button_accept: 'Принимаю',
+    button_confirm: 'Подтвердить',
+    button_decline: 'Отказаться',
+    button_done: 'Готово',
+    button_restart: 'Начать заново',
+    choose_category: 'Выберите вид услуги.',
+    choose_language: 'Tilni tanlang / Выберите язык.',
+    consent_required: 'Для отправки заявки необходимо принять условия конфиденциальности.',
+    contact_must_be_own: 'Поделитесь только своим номером Telegram.',
+    enter_address: 'Напишите адрес или отправьте геолокацию Telegram.',
+    enter_description: 'Опишите проблему, используя от 10 до 2000 символов.',
+    invalid_address: 'Адрес должен содержать от 3 до 500 символов.',
+    invalid_category: 'Такого вида услуги нет. Выберите услугу из списка.',
+    invalid_contact: 'Неверный номер телефона. Используйте кнопку Telegram.',
+    invalid_description: 'Описание должно содержать от 10 до 2000 символов.',
+    photo_added: 'Фотография принята ({count}/3).',
+    photo_invalid: 'Размер фотографии не должен превышать 10 МБ.',
+    photo_limit: 'Можно отправить не более 3 фотографий.',
+    privacy_notice:
+      'Уведомление о конфиденциальности ({version}): контакты, адрес и фотографии сохраняются для выполнения заявки. Вы согласны?',
+    review_request:
+      'Проверьте заявку:\nУслуга: {category}\nОписание: {description}\nАдрес: {address}\nФотографии: {photoCount}',
+    share_contact: 'Поделитесь номером телефона с помощью кнопки Telegram.',
+    start_required: 'Для новой заявки нажмите /start. Для проверки статуса введите /status MCK-...',
+    status_result: 'Статус {ticketNumber}: {status}',
+    submitted: 'Заявка принята. Ваш номер: {ticketNumber}',
+    ticket_not_found: 'Заявка с таким номером не найдена или принадлежит другому пользователю.',
+    unexpected_error: 'Произошла непредвиденная ошибка. Повторите попытку немного позже.',
+  },
   'uz-Cyrl': {
     add_photos: '3 тагача JPEG/PNG расм юборинг ёки «Тайёр» тугмасини босинг.',
     button_accept: 'Қабул қиламан',

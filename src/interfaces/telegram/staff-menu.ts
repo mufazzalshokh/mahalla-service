@@ -1,0 +1,173 @@
+import { InlineKeyboard, Keyboard } from 'grammy';
+
+import type { BotLanguage } from '../../application/localization/bot-language.js';
+
+export type StaffMenuAction =
+  | 'complaints'
+  | 'help'
+  | 'language'
+  | 'mine'
+  | 'notifications'
+  | 'overdue'
+  | 'pdca'
+  | 'queue'
+  | 'reports';
+
+const labels: Readonly<Record<BotLanguage, Readonly<Record<StaffMenuAction, string>>>> = {
+  ru: {
+    complaints: '📝 Жалобы',
+    help: 'ℹ️ Помощь',
+    language: '🌐 Язык',
+    mine: '🧰 Мои работы',
+    notifications: '🔔 Уведомления',
+    overdue: '⚠️ Просроченные',
+    pdca: '🔄 PDCA',
+    queue: '📥 Заявки',
+    reports: '📊 Отчёты',
+  },
+  uz: {
+    complaints: '📝 Shikoyatlar',
+    help: 'ℹ️ Yordam',
+    language: '🌐 Til',
+    mine: '🧰 Mening ishlarim',
+    notifications: '🔔 Xabarlar',
+    overdue: '⚠️ Kechikkanlar',
+    pdca: '🔄 PDCA',
+    queue: '📥 So‘rovlar',
+    reports: '📊 Hisobotlar',
+  },
+};
+
+export function staffMenuActionForText(text: string): StaffMenuAction | undefined {
+  for (const language of ['uz', 'ru'] as const) {
+    for (const [action, label] of Object.entries(labels[language])) {
+      if (text === label) return action as StaffMenuAction;
+    }
+  }
+  return undefined;
+}
+
+export function staffMainMenu(language: BotLanguage): Keyboard {
+  const value = labels[language];
+  return new Keyboard()
+    .text(value.queue)
+    .text(value.mine)
+    .row()
+    .text(value.overdue)
+    .text(value.complaints)
+    .row()
+    .text(value.reports)
+    .text(value.pdca)
+    .row()
+    .text(value.notifications)
+    .text(value.language)
+    .row()
+    .text(value.help)
+    .resized()
+    .persistent();
+}
+
+export function staffLanguageMenu(): InlineKeyboard {
+  return new InlineKeyboard().text("🇺🇿 O'zbekcha", 'lang:uz').text('🇷🇺 Русский', 'lang:ru');
+}
+
+export function staffReportMenu(language: BotLanguage): InlineKeyboard {
+  return new InlineKeyboard()
+    .text(language === 'ru' ? 'Неделя' : 'Hafta', 'report:week')
+    .text(language === 'ru' ? 'Месяц' : 'Oy', 'report:month')
+    .row()
+    .text(language === 'ru' ? 'CSV за неделю' : 'Haftalik CSV', 'reportcsv:week')
+    .text(language === 'ru' ? 'CSV за месяц' : 'Oylik CSV', 'reportcsv:month');
+}
+
+export function staffEntityMenu(
+  kind: 'complaint' | 'notification' | 'order' | 'pdca' | 'request',
+  references: readonly string[],
+): InlineKeyboard | undefined {
+  if (references.length === 0) return undefined;
+  const keyboard = new InlineKeyboard();
+  references.forEach((reference) => keyboard.text(reference, `entity:${kind}:${reference}`).row());
+  return keyboard;
+}
+
+export function referencesFromText(text: string, prefix: string): readonly string[] {
+  return [...new Set(text.match(new RegExp(`${prefix}-\\d{4}-\\d{8}`, 'gu')) ?? [])];
+}
+
+export function requestActions(reference: string, language: BotLanguage): InlineKeyboard {
+  return new InlineKeyboard()
+    .text(
+      language === 'ru' ? 'Начать проверку' : 'Tekshiruvni boshlash',
+      `action:validate:${reference}`,
+    )
+    .row()
+    .text(
+      language === 'ru' ? 'Похожие заявки' : 'O‘xshash so‘rovlar',
+      `action:duplicates:${reference}`,
+    )
+    .text(
+      language === 'ru' ? 'Оценить приоритет' : 'Ustuvorlikni baholash',
+      `prompt:triage:${reference}`,
+    )
+    .row()
+    .text(language === 'ru' ? 'Запросить данные' : 'Ma’lumot so‘rash', `prompt:info:${reference}`)
+    .text(
+      language === 'ru' ? 'Зарегистрировать' : 'Ro‘yxatga olish',
+      `action:register:${reference}`,
+    )
+    .row()
+    .text(language === 'ru' ? 'Отклонить' : 'Rad etish', `prompt:reject:${reference}`);
+}
+
+export function orderActions(reference: string, language: BotLanguage): InlineKeyboard {
+  return new InlineKeyboard()
+    .text(language === 'ru' ? 'Принять' : 'Qabul qilish', `action:accept:${reference}`)
+    .text(language === 'ru' ? 'Исполнители' : 'Ijrochilar', `action:executors:${reference}`)
+    .row()
+    .text(language === 'ru' ? 'Ход работы' : 'Ish jarayoni', `prompt:progress:${reference}`)
+    .text(language === 'ru' ? 'Приостановить' : 'To‘xtatish', `prompt:block:${reference}`)
+    .text(language === 'ru' ? 'Продолжить' : 'Davom ettirish', `action:unblock:${reference}`)
+    .row()
+    .text('📷 BEFORE', `photo:BEFORE:${reference}`)
+    .text('📷 AFTER', `photo:AFTER:${reference}`)
+    .row()
+    .text(
+      language === 'ru' ? 'Завершить работу' : 'Ishni yakunlash',
+      `prompt:complete:${reference}`,
+    )
+    .text(language === 'ru' ? 'Чек-лист' : 'Tekshiruv ro‘yxati', `action:checklist:${reference}`)
+    .row()
+    .text(
+      language === 'ru' ? 'Принять работу' : 'Ishni qabul qilish',
+      `action:approve:${reference}`,
+    )
+    .text(language === 'ru' ? 'На доработку' : 'Qayta ishlash', `prompt:rework:${reference}`)
+    .row()
+    .text(
+      language === 'ru' ? 'Начать доработку' : 'Qayta ishni boshlash',
+      `action:startrework:${reference}`,
+    );
+}
+
+export function complaintActions(reference: string, language: BotLanguage): InlineKeyboard {
+  return new InlineKeyboard()
+    .text(language === 'ru' ? 'Решить' : 'Hal qilish', `prompt:resolve:${reference}`)
+    .text(language === 'ru' ? 'Отклонить' : 'Rad etish', `prompt:rejectcomplaint:${reference}`)
+    .row()
+    .text(
+      language === 'ru' ? 'Открыть доработку' : 'Qayta ish ochish',
+      `prompt:reopen:${reference}`,
+    );
+}
+
+export function pdcaActions(reference: string, language: BotLanguage): InlineKeyboard {
+  const name = (uz: string, ru: string): string => (language === 'ru' ? ru : uz);
+  return new InlineKeyboard()
+    .text(name('Bajarish', 'Выполнение'), `prompt:pdca_DO:${reference}`)
+    .text(name('Tekshirish', 'Проверка'), `prompt:pdca_CHECK:${reference}`)
+    .row()
+    .text(name('Standartlash', 'Стандартизация'), `prompt:pdca_ACT:${reference}`)
+    .text(name('Yakunlash', 'Завершить'), `prompt:pdca_COMPLETED:${reference}`)
+    .row()
+    .text(name('Bekor qilish', 'Отменить'), `prompt:pdca_CANCELLED:${reference}`);
+}

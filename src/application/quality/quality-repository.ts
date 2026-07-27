@@ -15,6 +15,7 @@ export interface QualityPolicyRecord {
   readonly complaintReviewHours: number;
   readonly inspectionRequired: boolean;
   readonly items: readonly (QualityChecklistItem & {
+    readonly labelRu: string;
     readonly labelUzCyrl: string;
     readonly labelUzLatn: string;
   })[];

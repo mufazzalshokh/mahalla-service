@@ -156,7 +156,7 @@ export const residentProfiles = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
   },
   (table) => [
-    check('resident_profiles_language_ck', sql`${table.language} in ('uz-Latn', 'uz-Cyrl')`),
+    check('resident_profiles_language_ck', sql`${table.language} in ('uz-Latn', 'uz-Cyrl', 'ru')`),
     check(
       'resident_profiles_phone_ck',
       sql`${table.phone} is null or ${table.phone} ~ '^\\+[1-9][0-9]{7,14}$'`,
@@ -202,7 +202,7 @@ export const telegramIntakeSessions = pgTable(
     ),
     check(
       'telegram_intake_sessions_language_ck',
-      sql`${table.language} is null or ${table.language} in ('uz-Latn', 'uz-Cyrl')`,
+      sql`${table.language} is null or ${table.language} in ('uz-Latn', 'uz-Cyrl', 'ru')`,
     ),
     check('telegram_intake_sessions_version_ck', sql`${table.version} >= 0`),
   ],
@@ -292,6 +292,7 @@ export const serviceCategories = pgTable(
     createdAt,
     id: uuid('id').primaryKey().defaultRandom(),
     isActive: boolean('is_active').notNull().default(true),
+    nameRu: varchar('name_ru', { length: 200 }).notNull(),
     nameUzCyrl: varchar('name_uz_cyrl', { length: 200 }).notNull(),
     nameUzLatn: varchar('name_uz_latn', { length: 200 }).notNull(),
     sortOrder: integer('sort_order').notNull().default(0),
@@ -940,6 +941,7 @@ export const qualityChecklistItems = pgTable(
     code: varchar('code', { length: 50 }).notNull(),
     id: uuid('id').primaryKey().defaultRandom(),
     isRequired: boolean('is_required').notNull().default(true),
+    labelRu: varchar('label_ru', { length: 300 }).notNull(),
     labelUzCyrl: varchar('label_uz_cyrl', { length: 300 }).notNull(),
     labelUzLatn: varchar('label_uz_latn', { length: 300 }).notNull(),
     sortOrder: integer('sort_order').notNull().default(0),

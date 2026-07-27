@@ -26,6 +26,14 @@ describe('staff Telegram controller', () => {
     });
   });
 
+  it('passes Russian UI language to staff operations', async () => {
+    const execute = vi.fn().mockResolvedValue('ok');
+    const controller = new StaffTelegramController({ execute });
+    await controller.handle(10n, '/queue', 'ru');
+    expect(execute).toHaveBeenCalledWith(10n, { kind: 'queue' }, 'ru');
+    await expect(controller.handle(10n, '/help', 'ru')).resolves.toContain('Используйте кнопки');
+  });
+
   it('requires explicit decisions and complete commands', async () => {
     const controller = new StaffTelegramController({ execute: vi.fn() });
     await expect(controller.handle(10n, '/duplicate A B maybe')).rejects.toThrow(/confirm/i);
