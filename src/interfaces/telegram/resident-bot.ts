@@ -6,6 +6,7 @@ import type {
   ResidentUpdateInput,
 } from '../../application/intake/intake-types.js';
 import type { RespondToInformationService } from '../../application/requests/respond-to-information-service.js';
+import type { ResidentQualityService } from '../../application/quality/quality-service.js';
 import { ResidentTelegramController, type TelegramReply } from './resident-telegram-controller.js';
 import { translate } from './translations.js';
 
@@ -13,6 +14,7 @@ export interface ResidentBotOptions {
   readonly onError?: (error: Error, updateId: number) => void;
   readonly service: HandleResidentUpdateService;
   readonly respondToInformation?: RespondToInformationService;
+  readonly quality?: ResidentQualityService;
   readonly token: string;
 }
 
@@ -76,6 +78,75 @@ export function createResidentBot(options: ResidentBotOptions): Bot {
       information,
     );
     await ctx.reply(`${request.ticketNumber}: ma’lumot qabul qilindi.`);
+  });
+  bot.command('accept', async (ctx) => {
+    if (!ctx.from || !options.quality) return;
+    const orderNumber = ctx.match.trim().toUpperCase();
+    if (!orderNumber) {
+      await ctx.reply('/accept ORDER');
+      return;
+    }
+    const order = await options.quality.accept(BigInt(ctx.from.id), orderNumber);
+    await ctx.reply(`${order.orderNumber}: ish qabul qilindi. Rahmat.`);
+  });
+  bot.command('rework', async (ctx) => {
+    if (!ctx.from || !options.quality) return;
+    const [rawOrderNumber, ...reasonParts] = ctx.match.trim().split(/\s+/u);
+    const reason = reasonParts.join(' ').trim();
+    if (!rawOrderNumber || reason.length < 3) {
+      await ctx.reply('/rework ORDER sabab');
+      return;
+    }
+    const order = await options.quality.requireRework(
+      BigInt(ctx.from.id),
+      rawOrderNumber.toUpperCase(),
+      reason,
+    );
+    await ctx.reply(`${order.orderNumber}: qayta ishlash talabi qabul qilindi.`);
+  });
+  bot.command('rate', async (ctx) => {
+    if (!ctx.from || !options.quality) return;
+    const [rawOrderNumber, rawRating, ...commentParts] = ctx.match.trim().split(/\s+/u);
+    if (!rawOrderNumber || !rawRating) {
+      await ctx.reply('/rate ORDER 1..5 ixtiyoriy izoh');
+      return;
+    }
+    await options.quality.feedback(
+      BigInt(ctx.from.id),
+      rawOrderNumber.toUpperCase(),
+      Number(rawRating),
+      commentParts.join(' ').trim() || undefined,
+    );
+    await ctx.reply(`${rawOrderNumber.toUpperCase()}: bahoyingiz saqlandi.`);
+  });
+  bot.command('complaint', async (ctx) => {
+    if (!ctx.from || !options.quality) return;
+    const [rawOrderNumber, ...reasonParts] = ctx.match.trim().split(/\s+/u);
+    const reason = reasonParts.join(' ').trim();
+    if (!rawOrderNumber || reason.length < 5) {
+      await ctx.reply('/complaint ORDER shikoyat matni');
+      return;
+    }
+    const complaint = await options.quality.complaint(
+      BigInt(ctx.from.id),
+      rawOrderNumber.toUpperCase(),
+      reason,
+    );
+    await ctx.reply(
+      `${complaint.code}: shikoyat qabul qilindi. Ko‘rib chiqish muddati ${complaint.reviewDueAt.toISOString()}.`,
+    );
+  });
+  bot.command('warranty', async (ctx) => {
+    if (!ctx.from || !options.quality) return;
+    const orderNumber = ctx.match.trim().toUpperCase();
+    if (!orderNumber) {
+      await ctx.reply('/warranty ORDER');
+      return;
+    }
+    const warranty = await options.quality.warranty(BigInt(ctx.from.id), orderNumber);
+    await ctx.reply(
+      `${orderNumber}: kafolat ${warranty.endsAt.toISOString()} gacha (${warranty.warrantyDays} kun).`,
+    );
   });
   bot.on('callback_query:data', (ctx) =>
     dispatch(ctx, { data: ctx.callbackQuery.data, kind: 'callback' }, controller),

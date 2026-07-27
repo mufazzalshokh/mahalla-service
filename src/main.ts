@@ -6,6 +6,7 @@ import { RespondToInformationService } from './application/requests/respond-to-i
 import { ExecutionService } from './application/execution/execution-service.js';
 import { TransitionOrderService } from './application/orders/transition-order-service.js';
 import { TransitionRequestService } from './application/requests/transition-request-service.js';
+import { QualityService, ResidentQualityService } from './application/quality/quality-service.js';
 import {
   AssessPriorityService,
   DecideDuplicateService,
@@ -24,6 +25,7 @@ import { PostgresExecutionRepository } from './infrastructure/execution/postgres
 import { PostgresExecutorEligibility } from './infrastructure/orders/postgres-executor-eligibility.js';
 import { PostgresOrderRepository } from './infrastructure/orders/postgres-order-repository.js';
 import { PostgresRequestRepository } from './infrastructure/requests/postgres-request-repository.js';
+import { PostgresQualityRepository } from './infrastructure/quality/postgres-quality-repository.js';
 import { PostgresTriageRepository } from './infrastructure/triage/postgres-triage-repository.js';
 import { buildApp } from './interfaces/http/build-app.js';
 import { createResidentBot } from './interfaces/telegram/resident-bot.js';
@@ -51,14 +53,26 @@ async function start(): Promise<void> {
       new PostgresResidentIntakeUnitOfWork(applicationDatabase.db),
     );
     const requestRepository = new PostgresRequestRepository(applicationDatabase.db);
+    const principalProvider = new PostgresPrincipalProvider(applicationDatabase.db);
+    const residentQuality = new ResidentQualityService(
+      principalProvider,
+      new QualityService(
+        new PostgresQualityRepository(applicationDatabase.db),
+        new TransitionOrderService(
+          new PostgresOrderRepository(applicationDatabase.db),
+          new PostgresExecutorEligibility(applicationDatabase.db),
+        ),
+      ),
+    );
     const bot = createResidentBot({
       onError(error, updateId): void {
         app.log.error({ err: error, telegramUpdateId: updateId }, 'Resident bot update failed');
       },
       respondToInformation: new RespondToInformationService(
-        new PostgresPrincipalProvider(applicationDatabase.db),
+        principalProvider,
         new TransitionRequestService(requestRepository),
       ),
+      quality: residentQuality,
       service: intakeService,
       token: environment.RESIDENT_BOT_TOKEN,
     });
@@ -75,6 +89,10 @@ async function start(): Promise<void> {
       new PostgresOrderRepository(applicationDatabase.db),
       new PostgresExecutorEligibility(applicationDatabase.db),
     );
+    const quality = new QualityService(
+      new PostgresQualityRepository(applicationDatabase.db),
+      transitionOrder,
+    );
     const staffBot = createStaffBot({
       onError(error, updateId): void {
         app.log.error({ err: error, telegramUpdateId: updateId }, 'Staff bot update failed');
@@ -86,6 +104,7 @@ async function start(): Promise<void> {
         listQueue: new ListValidationQueueService(triageRepository),
         overridePriority: new OverridePriorityService(triageRepository),
         principals: new PostgresPrincipalProvider(applicationDatabase.db),
+        quality,
         registerRequest: new RegisterRequestAsOrderService(triageRepository),
         suggestDuplicates: new SuggestDuplicatesService(triageRepository),
         transitionRequest: new TransitionRequestService(

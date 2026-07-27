@@ -40,24 +40,26 @@ stateDiagram-v2
     AWAITING_ACCEPTANCE --> REWORK_REQUIRED
     REWORK_REQUIRED --> IN_PROGRESS
     AWAITING_ACCEPTANCE --> COMPLETED
+    COMPLETED --> REWORK_REQUIRED: authorized complaint reopen
     REGISTERED --> CANCELLED
     ASSIGNED --> CANCELLED
     IN_PROGRESS --> CANCELLED
     BLOCKED --> CANCELLED
 ```
 
-| From → to                                           | Permission / actor                          | Preconditions and required data                                         | Side effect, notification, SLA, audit                                            |
-| --------------------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| REGISTERED → ASSIGNED                               | `order.assign`, area-scoped                 | active/available scoped and category-capable executor; future `dueAt`   | pending assignment + SLA target + executor/deadline + history/audit              |
-| ASSIGNED → REGISTERED                               | `assignment.respond`, current executor      | `reason` required                                                       | declined assignment preserved; clear projection; stop clock; history/audit       |
-| ASSIGNED → IN_PROGRESS                              | `assignment.respond`, current executor      | actor is assigned                                                       | accept assignment; start execution SLA; history/audit                            |
-| IN_PROGRESS → BLOCKED                               | `order.update_progress`, current executor   | `blockerReason` required                                                | blocked work log; pause SLA; history/audit                                       |
-| BLOCKED → IN_PROGRESS                               | `order.update_progress`, current executor   | blocker resolved                                                        | unblocked work log; accumulate paused time; history/audit                        |
-| IN_PROGRESS → AWAITING_ACCEPTANCE                   | `order.submit_completion`, current executor | `completionSummary` required; optional controlled evidence              | completion log; complete assignment; stop SLA; history/audit                     |
-| AWAITING_ACCEPTANCE → REWORK_REQUIRED               | `quality.require_rework`, area-scoped       | authorized inspector/customer policy; `reworkReason` required           | record reason + history; notify executor; no SLA change; `order.rework_required` |
-| REWORK_REQUIRED → IN_PROGRESS                       | `order.start_rework`, current executor      | actor is assigned                                                       | history; resident status; start execution SLA; `order.rework_started`            |
-| AWAITING_ACCEPTANCE → COMPLETED                     | `quality.accept`, area-scoped               | acceptance authority satisfied                                          | set completion time + history; resident status; stop SLA; `order.completed`      |
-| REGISTERED/ASSIGNED/IN_PROGRESS/BLOCKED → CANCELLED | `order.cancel`, area-scoped                 | policy allows current-stage cancellation; `cancellationReason` required | record reason + history; resident status; stop SLA; `order.cancelled`            |
+| From → to                                           | Permission / actor                          | Preconditions and required data                                         | Side effect, notification, SLA, audit                                      |
+| --------------------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| REGISTERED → ASSIGNED                               | `order.assign`, area-scoped                 | active/available scoped and category-capable executor; future `dueAt`   | pending assignment + SLA target + executor/deadline + history/audit        |
+| ASSIGNED → REGISTERED                               | `assignment.respond`, current executor      | `reason` required                                                       | declined assignment preserved; clear projection; stop clock; history/audit |
+| ASSIGNED → IN_PROGRESS                              | `assignment.respond`, current executor      | actor is assigned                                                       | accept assignment; start execution SLA; history/audit                      |
+| IN_PROGRESS → BLOCKED                               | `order.update_progress`, current executor   | `blockerReason` required                                                | blocked work log; pause SLA; history/audit                                 |
+| BLOCKED → IN_PROGRESS                               | `order.update_progress`, current executor   | blocker resolved                                                        | unblocked work log; accumulate paused time; history/audit                  |
+| IN_PROGRESS → AWAITING_ACCEPTANCE                   | `order.submit_completion`, current executor | `completionSummary` required; optional controlled evidence              | completion log; complete assignment; stop SLA; history/audit               |
+| AWAITING_ACCEPTANCE → REWORK_REQUIRED               | `quality.require_rework`, owner/scoped      | policy authority; reason and future rework deadline                     | rework decision + new pending assignment/SLA + history/audit               |
+| REWORK_REQUIRED → IN_PROGRESS                       | `order.start_rework`, current executor      | actor is assigned                                                       | accept rework assignment; start SLA; history/audit                         |
+| AWAITING_ACCEPTANCE → COMPLETED                     | `quality.accept`, owner/scoped              | active policy; required passing inspection; acceptance source/warranty  | acceptance + completion + warranty + history/audit                         |
+| COMPLETED → REWORK_REQUIRED                         | `quality.reopen`, area-scoped               | open linked complaint; reason and future rework deadline                | complaint reopened + new pending assignment/SLA + history/audit            |
+| REGISTERED/ASSIGNED/IN_PROGRESS/BLOCKED → CANCELLED | `order.cancel`, area-scoped                 | policy allows current-stage cancellation; `cancellationReason` required | record reason + history; resident status; stop SLA; `order.cancelled`      |
 
 ## Uniform failure and compensation policy
 

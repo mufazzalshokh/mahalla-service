@@ -45,6 +45,12 @@ export default defineConfig({
           lines: 90,
           statements: 90,
         },
+        'src/domain/quality/quality-policy.ts': {
+          branches: 90,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
         branches: 80,
         functions: 80,
         lines: 80,

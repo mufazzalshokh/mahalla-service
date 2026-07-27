@@ -12,6 +12,8 @@ import type {
 import type { PriorityBand } from '../../domain/priority/priority-calculator.js';
 import type { WorkEvidenceInput } from '../../domain/execution/work-evidence-policy.js';
 import type { ExecutionService } from '../execution/execution-service.js';
+import type { QualityService } from '../quality/quality-service.js';
+import type { InspectionItemInput } from '../../domain/quality/quality-policy.js';
 
 export interface StaffOperations {
   execute(telegramUserId: bigint, command: StaffOperationCommand): Promise<string>;
@@ -64,7 +66,25 @@ export type StaffOperationCommand =
       readonly kind: 'work-evidence';
       readonly orderNumber: string;
     }
-  | { readonly kind: 'overdue' };
+  | { readonly kind: 'overdue' }
+  | { readonly kind: 'quality-checklist'; readonly orderNumber: string }
+  | {
+      readonly kind: 'quality-inspection';
+      readonly orderNumber: string;
+      readonly results: readonly InspectionItemInput[];
+      readonly summary: string;
+    }
+  | { readonly kind: 'approve-work'; readonly orderNumber: string }
+  | { readonly kind: 'require-rework'; readonly orderNumber: string; readonly reason: string }
+  | { readonly kind: 'start-rework'; readonly orderNumber: string }
+  | { readonly kind: 'complaints' }
+  | { readonly complaintCode: string; readonly kind: 'reopen'; readonly reason: string }
+  | {
+      readonly complaintCode: string;
+      readonly kind: 'complaint-decision';
+      readonly outcome: 'RESOLVED' | 'REJECTED';
+      readonly reason: string;
+    };
 
 export interface StaffOperationDependencies {
   readonly assessPriority: AssessPriorityService;
@@ -73,6 +93,7 @@ export interface StaffOperationDependencies {
   readonly listQueue: ListValidationQueueService;
   readonly overridePriority: OverridePriorityService;
   readonly principals: PrincipalProvider;
+  readonly quality: QualityService;
   readonly registerRequest: RegisterRequestAsOrderService;
   readonly suggestDuplicates: SuggestDuplicatesService;
   readonly transitionRequest: TransitionRequestService;
@@ -267,6 +288,78 @@ export class StaffOperationsService implements StaffOperations {
               )
               .join('\n');
       }
+      case 'quality-checklist': {
+        const policy = await this.dependencies.quality.checklist(command.orderNumber, principal);
+        return [
+          `V${policy.templateVersion}${policy.inspectionRequired ? ' — tekshiruv majburiy' : ''}`,
+          ...policy.items.map(
+            ({ code, isRequired, labelUzLatn }) =>
+              `${code} — ${labelUzLatn}${isRequired ? ' *' : ''}`,
+          ),
+        ].join('\n');
+      }
+      case 'quality-inspection': {
+        const inspection = await this.dependencies.quality.inspect(
+          command.orderNumber,
+          command.results,
+          command.summary,
+          principal,
+        );
+        return `${command.orderNumber}: tekshiruv #${inspection.attempt} — ${inspection.outcome}.`;
+      }
+      case 'approve-work': {
+        const order = await this.dependencies.quality.accept(
+          command.orderNumber,
+          'OPERATOR',
+          principal,
+        );
+        return `${order.orderNumber}: ish qabul qilindi va kafolat boshlandi.`;
+      }
+      case 'require-rework': {
+        const order = await this.dependencies.quality.requireRework(
+          command.orderNumber,
+          command.reason,
+          'OPERATOR',
+          principal,
+        );
+        return `${order.orderNumber}: qayta ishlash talab qilindi.`;
+      }
+      case 'start-rework': {
+        const order = await this.dependencies.execution.transition(
+          command.orderNumber,
+          'IN_PROGRESS',
+          {},
+          principal,
+        );
+        return `${order.orderNumber}: qayta ishlash boshlandi.`;
+      }
+      case 'complaints': {
+        const complaints = await this.dependencies.quality.listComplaints(principal);
+        return complaints.length === 0
+          ? 'Ochiq shikoyat yo‘q.'
+          : complaints
+              .map(
+                ({ code, order, reviewDueAt, withinWarranty }) =>
+                  `${code} — ${order.orderNumber} — ${reviewDueAt.toISOString()} — ${withinWarranty ? 'kafolatda' : 'kafolatdan tashqari'}`,
+              )
+              .join('\n');
+      }
+      case 'reopen': {
+        const order = await this.dependencies.quality.reopen(
+          command.complaintCode,
+          command.reason,
+          principal,
+        );
+        return `${order.orderNumber}: shikoyat asosida nazoratli qayta ish ochildi.`;
+      }
+      case 'complaint-decision':
+        await this.dependencies.quality.decideComplaint(
+          command.complaintCode,
+          command.outcome,
+          command.reason,
+          principal,
+        );
+        return `${command.complaintCode}: shikoyat ${command.outcome}.`;
     }
   }
 }

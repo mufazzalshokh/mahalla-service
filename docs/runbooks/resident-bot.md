@@ -26,6 +26,9 @@ Only one long-polling resident-bot process may run for a token. The database ide
 6. Optionally send up to three Telegram photos and press Done.
 7. Confirm and retain the returned `MCK-YYYY-NNNNNNNN` ticket.
 8. Query `/status MCK-YYYY-NNNNNNNN` from the same account.
+9. When an order awaits acceptance, use `/accept ORDER` or `/rework ORDER reason`.
+10. After completion, use `/warranty ORDER`, `/rate ORDER 1..5 optional comment`, or
+    `/complaint ORDER reason`.
 
 ## Operational checks
 
@@ -41,3 +44,5 @@ Only one long-polling resident-bot process may run for a token. The database ide
 - Three photos maximum, 10 MB each.
 - The privacy wording is a draft and real resident data is prohibited until OQ-003/OQ-004 are approved.
 - Telegram-held file IDs are pilot metadata, not durable contractual evidence.
+- Quality commands verify that the Telegram account owns a request linked to the order.
+- One rating and one open complaint per resident/order are allowed. A complaint does not automatically reopen work.

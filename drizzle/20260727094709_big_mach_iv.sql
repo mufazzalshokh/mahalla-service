@@ -1,0 +1,2 @@
+ALTER TABLE "quality_inspections" ADD COLUMN "order_version" integer NOT NULL;--> statement-breakpoint
+ALTER TABLE "quality_inspections" ADD CONSTRAINT "quality_inspections_order_version_ck" CHECK ("quality_inspections"."order_version" >= 0);

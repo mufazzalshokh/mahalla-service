@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { permissionKeys, type PermissionKey } from '../../domain/identity/permissions.js';
 import type { MckDatabase } from './client.js';
@@ -6,6 +6,8 @@ import {
   permissions,
   priorityCriteria,
   priorityModels,
+  qualityChecklistItems,
+  qualityChecklistTemplates,
   requestSources,
   rolePermissions,
   roles,
@@ -37,8 +39,11 @@ const rolePermissionMap: Readonly<Record<string, readonly PermissionKey[]>> = {
     'order.assign',
     'order.cancel',
     'order.escalation.review',
+    'quality.inspect',
     'quality.accept',
     'quality.require_rework',
+    'quality.complaint.review',
+    'quality.reopen',
     'priority.override',
     'audit.read',
   ],
@@ -75,6 +80,61 @@ export async function seedFoundation(database: MckDatabase): Promise<void> {
         },
       ])
       .onConflictDoNothing({ target: serviceCategories.code });
+
+    const categoryRows = await tx
+      .select({ code: serviceCategories.code, id: serviceCategories.id })
+      .from(serviceCategories);
+    for (const category of categoryRows) {
+      await tx
+        .insert(qualityChecklistTemplates)
+        .values({
+          categoryId: category.id,
+          inspectionRequired: category.code === 'ELECTRICAL',
+          name: `${category.code} pilot quality checklist`,
+          version: 1,
+        })
+        .onConflictDoNothing({
+          target: [qualityChecklistTemplates.categoryId, qualityChecklistTemplates.version],
+        });
+      const [template] = await tx
+        .select({ id: qualityChecklistTemplates.id })
+        .from(qualityChecklistTemplates)
+        .where(
+          and(
+            eq(qualityChecklistTemplates.categoryId, category.id),
+            eq(qualityChecklistTemplates.version, 1),
+          ),
+        );
+      if (!template) throw new Error(`Quality template not found: ${category.code}`);
+      await tx
+        .insert(qualityChecklistItems)
+        .values([
+          {
+            code: 'WORK_COMPLETE',
+            labelUzCyrl: 'Иш келишилган ҳажмда бажарилди',
+            labelUzLatn: 'Ish kelishilgan hajmda bajarildi',
+            sortOrder: 10,
+            templateId: template.id,
+          },
+          {
+            code: 'RESULT_TESTED',
+            labelUzCyrl: 'Натижа хавфсиз текширилди',
+            labelUzLatn: 'Natija xavfsiz tekshirildi',
+            sortOrder: 20,
+            templateId: template.id,
+          },
+          {
+            code: 'AREA_CLEAN',
+            labelUzCyrl: 'Иш жойи тоза қолдирилди',
+            labelUzLatn: 'Ish joyi toza qoldirildi',
+            sortOrder: 30,
+            templateId: template.id,
+          },
+        ])
+        .onConflictDoNothing({
+          target: [qualityChecklistItems.templateId, qualityChecklistItems.code],
+        });
+    }
 
     await tx
       .insert(requestSources)

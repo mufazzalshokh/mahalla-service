@@ -35,12 +35,17 @@ export interface OrderSnapshot {
 }
 
 export interface OrderTransitionData {
+  readonly acceptanceSource?: 'OPERATOR' | 'RESIDENT';
   readonly assigneeUserId?: string;
   readonly cancellationReason?: string;
   readonly completionSummary?: string;
   readonly dueAt?: Date;
   readonly reason?: string;
   readonly reworkReason?: string;
+  readonly reworkDueAt?: Date;
+  readonly complaintId?: string;
+  readonly inspectionId?: string;
+  readonly warrantyDays?: number;
   readonly blockerReason?: string;
   readonly progressNote?: string;
 }
@@ -147,8 +152,12 @@ export const orderTransitionDefinitions: readonly TransitionDefinition<
     notification: 'executor.rework_required',
     permission: 'quality.require_rework',
     preconditions: ['Actor is authorized to inspect or accept the work.'],
-    requiredData: ['reworkReason'],
-    sideEffects: ['Record rework reason.', 'Append status history.'],
+    requiredData: ['reworkReason', 'reworkDueAt'],
+    sideEffects: [
+      'Record rework decision.',
+      'Create a rework assignment and SLA.',
+      'Append status history.',
+    ],
     slaEffect: 'none',
     to: 'REWORK_REQUIRED',
   },
@@ -173,10 +182,34 @@ export const orderTransitionDefinitions: readonly TransitionDefinition<
     notification: 'resident.status_changed',
     permission: 'quality.accept',
     preconditions: ['Actor is authorized to inspect or accept the work.'],
-    requiredData: [],
-    sideEffects: ['Set completion timestamp.', 'Append status history.'],
+    requiredData: ['acceptanceSource', 'warrantyDays'],
+    sideEffects: [
+      'Record acceptance.',
+      'Set completion and warranty timestamps.',
+      'Append status history.',
+    ],
     slaEffect: 'stop_execution',
     to: 'COMPLETED',
+  },
+  {
+    auditEvent: 'order.complaint_reopened',
+    compensation: noCompensation,
+    failureBehavior: sharedFailure,
+    from: 'COMPLETED',
+    notification: 'executor.rework_required',
+    permission: 'quality.reopen',
+    preconditions: [
+      'Actor is authorized to review complaints.',
+      'Complaint is open and linked to this order.',
+    ],
+    requiredData: ['complaintId', 'reworkReason', 'reworkDueAt'],
+    sideEffects: [
+      'Mark complaint as reopened.',
+      'Create a rework assignment and SLA.',
+      'Append status history.',
+    ],
+    slaEffect: 'none',
+    to: 'REWORK_REQUIRED',
   },
   ...(['REGISTERED', 'ASSIGNED', 'IN_PROGRESS', 'BLOCKED'] as const).map(
     (from): TransitionDefinition<OrderStatus, OrderDataKey> => ({
@@ -208,7 +241,9 @@ function requireData(data: OrderTransitionData, fields: readonly OrderDataKey[])
     const present =
       value instanceof Date
         ? !Number.isNaN(value.valueOf())
-        : typeof value === 'string' && value.trim().length > 0;
+        : typeof value === 'number'
+          ? Number.isFinite(value)
+          : typeof value === 'string' && value.trim().length > 0;
     if (!present) throw new MissingTransitionDataError(field);
   }
 }
@@ -246,6 +281,17 @@ export function planOrderTransition(
   requireData(data, definition.requiredData);
   if (order.status === 'REGISTERED' && to === 'ASSIGNED' && data.dueAt && data.dueAt <= now) {
     throw new DomainRuleError('DEADLINE_NOT_FUTURE', 'Assignment deadline must be in the future');
+  }
+  if (to === 'REWORK_REQUIRED' && data.reworkDueAt && data.reworkDueAt <= now) {
+    throw new DomainRuleError(
+      'REWORK_DEADLINE_NOT_FUTURE',
+      'Rework deadline must be in the future',
+    );
+  }
+  if (to === 'COMPLETED' && data.warrantyDays !== undefined) {
+    if (!Number.isInteger(data.warrantyDays) || data.warrantyDays < 0 || data.warrantyDays > 365) {
+      throw new DomainRuleError('WARRANTY_DAYS_INVALID', 'Warranty days must be from 0 to 365');
+    }
   }
 
   return { definition, from: order.status, to };

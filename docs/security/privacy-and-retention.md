@@ -15,5 +15,9 @@ This document is an engineering default, not legal advice or a compliance claim.
 | Assignment decisions and work logs  | executor accountability and operational history    | assignment/work-log tables  | provisional 24 months after closure; policy approval required                      |
 | Before/after evidence metadata      | support completion and later quality review        | Telegram evidence metadata  | provisional 90 days unless complaint/quality/legal hold applies                    |
 | SLA clocks and escalation history   | delay review and performance management            | SLA/escalation tables       | provisional 24 months; exclude resident content from escalation audit              |
+| Inspection and acceptance facts     | prove quality decision and responsible actor       | quality/acceptance tables   | provisional 24 months; checklist summary may contain no unnecessary resident PII   |
+| Rating and optional comment         | measure satisfaction and improve service           | quality feedback            | provisional 12 months after closure                                                |
+| Complaint and rework reason         | review defects and control correction              | complaint/rework tables     | retain while case is open, then provisional 24 months; legal hold may override     |
+| Warranty dates                      | show the pilot correction window                   | order warranty              | same period as order quality history                                               |
 
 Residents need a future authenticated workflow for access, correction, deletion/anonymization requests, and account recovery. Physical deletion of audit evidence must not be improvised; approved anonymization and legal-hold rules are required first.

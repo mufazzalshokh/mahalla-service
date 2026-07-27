@@ -46,3 +46,13 @@ from executable coverage percentages; their behavior is verified by the real dat
 
 The thin grammY event-registration/bootstrap file is excluded from executable coverage. Its normalized
 controller and application behavior are tested without requiring a live bot token.
+
+## CP-06 gates
+
+- Pure checklist, feedback, complaint, and rework-policy boundary tests.
+- Staff command parsing and application dispatch tests.
+- Resident-owner, operator-area, category-policy, and inspection authorization tests.
+- Real PostgreSQL inspection, acceptance, warranty, feedback, complaint, controlled-reopen,
+  rework assignment/SLA, audit, and concurrency tests.
+- At least 90% statements, branches, functions, and lines for the critical quality policy.
+- Additive migration review, repeated migration/seed execution, and full prior integration suite.

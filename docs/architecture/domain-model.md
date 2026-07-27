@@ -29,7 +29,7 @@ Requests and orders are deliberately separate. A request can be rejected or canc
 6. Assignment requires an active executor role valid globally or for the order's service area and a future deadline.
 7. Scoped grants cannot authorize an operation in another service area; a global grant can.
 8. Suspended or disabled users cannot produce an authenticated principal.
-9. Resident roles do not receive generic quality permissions; customer acceptance waits for order/request ownership enforcement in CP-06.
+9. Resident roles do not receive generic quality permissions; CP-06 grants an in-memory scoped decision only after active identity and request/order ownership checks.
 10. Stored timestamps use UTC-capable `timestamptz`; business display/reporting uses `Asia/Tashkent` unless later corrected.
 11. Category/source codes are data-driven. User-facing Uzbek Latin and Cyrillic labels are stored as UTF-8 data.
 
@@ -57,4 +57,4 @@ sequenceDiagram
 
 ## Deferred model elements
 
-Resident/staff profiles, duplicate matches, priority assessments, assignments as a historical aggregate, work evidence, inspections, warranties, feedback, notifications/outbox, finance, and KPI projections remain assigned to later checkpoints. CP-02 does not create speculative tables for them.
+Resident/staff profiles, duplicate matches, priority assessments, assignment history, work evidence, inspections, acceptances, warranties, feedback, complaints, and rework decisions now exist through CP-06. Notifications/outbox, finance, and KPI projections remain assigned to later checkpoints.

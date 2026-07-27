@@ -18,6 +18,7 @@ const principal: Principal = {
 
 function createService(): {
   execution: Record<string, ReturnType<typeof vi.fn>>;
+  quality: Record<string, ReturnType<typeof vi.fn>>;
   service: StaffOperationsService;
 } {
   const execution = {
@@ -29,16 +30,26 @@ function createService(): {
     scanOverdue: vi.fn().mockResolvedValue([]),
     transition: vi.fn().mockResolvedValue({ orderNumber: 'ORD-1' }),
   };
+  const quality = {
+    accept: vi.fn().mockResolvedValue({ orderNumber: 'ORD-1' }),
+    checklist: vi.fn().mockResolvedValue({ items: [], templateVersion: 1 }),
+    decideComplaint: vi.fn().mockResolvedValue(undefined),
+    inspect: vi.fn().mockResolvedValue({ attempt: 1, outcome: 'PASS' }),
+    listComplaints: vi.fn().mockResolvedValue([]),
+    reopen: vi.fn().mockResolvedValue({ orderNumber: 'ORD-1' }),
+    requireRework: vi.fn().mockResolvedValue({ orderNumber: 'ORD-1' }),
+  };
   const dependencies = {
     execution,
     principals: { loadByTelegramUserId: vi.fn().mockResolvedValue(principal) },
+    quality,
   } as unknown as StaffOperationDependencies;
-  return { execution, service: new StaffOperationsService(dependencies) };
+  return { execution, quality, service: new StaffOperationsService(dependencies) };
 }
 
 describe('staff execution operations', () => {
   it('dispatches every operator and executor execution command', async () => {
-    const { execution, service } = createService();
+    const { execution, quality, service } = createService();
     const commands: readonly StaffOperationCommand[] = [
       { kind: 'executors', orderNumber: 'ORD-1' },
       {
@@ -66,14 +77,39 @@ describe('staff execution operations', () => {
         orderNumber: 'ORD-1',
       },
       { kind: 'overdue' },
+      { kind: 'quality-checklist', orderNumber: 'ORD-1' },
+      {
+        kind: 'quality-inspection',
+        orderNumber: 'ORD-1',
+        results: [{ code: 'WORK', result: 'PASS' }],
+        summary: 'Checked',
+      },
+      { kind: 'approve-work', orderNumber: 'ORD-1' },
+      { kind: 'require-rework', orderNumber: 'ORD-1', reason: 'Fix it' },
+      { kind: 'start-rework', orderNumber: 'ORD-1' },
+      { kind: 'complaints' },
+      { complaintCode: 'CMP-1', kind: 'reopen', reason: 'Warranty correction' },
+      {
+        complaintCode: 'CMP-1',
+        kind: 'complaint-decision',
+        outcome: 'RESOLVED',
+        reason: 'Correction accepted',
+      },
     ];
     for (const command of commands) {
       await expect(service.execute(1n, command)).resolves.toEqual(expect.any(String));
     }
-    expect(execution.transition).toHaveBeenCalledTimes(5);
+    expect(execution.transition).toHaveBeenCalledTimes(6);
     expect(execution.addProgress).toHaveBeenCalledOnce();
     expect(execution.addEvidence).toHaveBeenCalledOnce();
     expect(execution.scanOverdue).toHaveBeenCalledOnce();
+    expect(quality.checklist).toHaveBeenCalledOnce();
+    expect(quality.inspect).toHaveBeenCalledOnce();
+    expect(quality.accept).toHaveBeenCalledOnce();
+    expect(quality.requireRework).toHaveBeenCalledOnce();
+    expect(quality.listComplaints).toHaveBeenCalledOnce();
+    expect(quality.reopen).toHaveBeenCalledOnce();
+    expect(quality.decideComplaint).toHaveBeenCalledOnce();
   });
 
   it('rejects a Telegram account without an active staff principal', async () => {

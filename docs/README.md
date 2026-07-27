@@ -5,7 +5,7 @@ This directory is the source of truth for the incremental Mahalla Service Compan
 
 ## Current checkpoint
 
-CP-00 through CP-05 are approved. CP-06 quality and acceptance has not started.
+CP-00 through CP-06 are approved. CP-07 notifications and operational automation has not started.
 
 ## Documents
 
@@ -27,6 +27,7 @@ CP-00 through CP-05 are approved. CP-06 quality and acceptance has not started.
 - [Interaction sequence diagrams](architecture/sequence-diagrams.md)
 - [Validation, duplicate review, and priority](architecture/triage-and-priority.md)
 - [Assignment and execution](architecture/assignment-and-execution.md)
+- [Quality and complaints](architecture/quality-and-complaints.md)
 - [Pilot deployment](architecture/deployment.md)
 - [Testing strategy](testing-strategy.md)
 - [Local development runbook](runbooks/local-development.md)
@@ -42,12 +43,14 @@ CP-00 through CP-05 are approved. CP-06 quality and acceptance has not started.
 - [ADR-0004: Request/order lifecycles and transactional audit](adr/ADR-0004-request-order-lifecycles-and-transactional-audit.md)
 - [ADR-0005: Deterministic priority and human duplicate decisions](adr/ADR-0005-deterministic-priority-and-human-duplicate-decisions.md)
 - [ADR-0006: Pilot execution SLA and evidence](adr/ADR-0006-pilot-execution-sla-and-evidence.md)
+- [ADR-0007: Pilot quality and complaint control](adr/ADR-0007-pilot-quality-and-complaint-control.md)
 - [CP-00 checkpoint record](checkpoints/CP-00-discovery.md)
 - [CP-01 checkpoint record](checkpoints/CP-01-engineering-foundation.md)
 - [CP-02 checkpoint record](checkpoints/CP-02-domain-model-and-persistence.md)
 - [CP-03 checkpoint record](checkpoints/CP-03-telegram-resident-intake.md)
 - [CP-04 checkpoint record](checkpoints/CP-04-validation-triage-and-priority.md)
 - [CP-05 checkpoint record](checkpoints/CP-05-assignment-and-execution.md)
+- [CP-06 checkpoint record](checkpoints/CP-06-quality-acceptance-and-complaints.md)
 
 ## Evidence hierarchy
 

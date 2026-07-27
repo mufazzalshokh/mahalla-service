@@ -21,6 +21,7 @@ import {
 import { orderStatuses } from '../../domain/orders/order-state-machine.js';
 import { requestStatuses } from '../../domain/requests/request-state-machine.js';
 import type { IntakeDraft, IntakeResponse } from '../../application/intake/intake-types.js';
+import type { InspectionItemInput } from '../../domain/quality/quality-policy.js';
 
 const createdAt = timestamp('created_at', { mode: 'date', withTimezone: true })
   .notNull()
@@ -67,10 +68,27 @@ export const escalationStatusEnum = pgEnum('escalation_status', [
   'RESOLVED',
 ]);
 export const escalationTypeEnum = pgEnum('escalation_type', ['DEADLINE_OVERDUE']);
+export const qualityAcceptanceModeEnum = pgEnum('quality_acceptance_mode', [
+  'RESIDENT_OR_OPERATOR',
+  'OPERATOR_ONLY',
+]);
+export const qualityInspectionOutcomeEnum = pgEnum('quality_inspection_outcome', ['PASS', 'FAIL']);
+export const qualityAcceptanceSourceEnum = pgEnum('quality_acceptance_source', [
+  'OPERATOR',
+  'RESIDENT',
+]);
+export const qualityComplaintStatusEnum = pgEnum('quality_complaint_status', [
+  'OPEN',
+  'REOPENED',
+  'RESOLVED',
+  'REJECTED',
+]);
+export const qualityReworkSourceEnum = pgEnum('quality_rework_source', ['ACCEPTANCE', 'COMPLAINT']);
 export const serviceRequestTicketSequence = pgSequence('service_request_ticket_seq', {
   startWith: 1,
 });
 export const orderPortfolioSequence = pgSequence('order_portfolio_seq', { startWith: 1 });
+export const qualityComplaintSequence = pgSequence('quality_complaint_seq', { startWith: 1 });
 
 export const serviceAreas = pgTable(
   'service_areas',
@@ -709,6 +727,218 @@ export const orderEscalations = pgTable(
       .on(table.orderId, table.type)
       .where(sql`${table.status} in ('OPEN', 'ACKNOWLEDGED')`),
     index('order_escalations_status_idx').on(table.status, table.createdAt),
+  ],
+);
+
+export const qualityChecklistTemplates = pgTable(
+  'quality_checklist_templates',
+  {
+    acceptanceMode: qualityAcceptanceModeEnum('acceptance_mode')
+      .notNull()
+      .default('RESIDENT_OR_OPERATOR'),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => serviceCategories.id, { onDelete: 'restrict' }),
+    complaintReviewHours: integer('complaint_review_hours').notNull().default(48),
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    inspectionRequired: boolean('inspection_required').notNull().default(false),
+    isActive: boolean('is_active').notNull().default(true),
+    name: varchar('name', { length: 200 }).notNull(),
+    reworkTargetHours: integer('rework_target_hours').notNull().default(24),
+    version: integer('version').notNull(),
+    warrantyDays: integer('warranty_days').notNull().default(7),
+  },
+  (table) => [
+    uniqueIndex('quality_templates_category_version_uq').on(table.categoryId, table.version),
+    uniqueIndex('quality_templates_category_active_uq')
+      .on(table.categoryId)
+      .where(sql`${table.isActive} = true`),
+    check('quality_templates_name_ck', sql`length(trim(${table.name})) > 0`),
+    check('quality_templates_version_ck', sql`${table.version} > 0`),
+    check('quality_templates_warranty_days_ck', sql`${table.warrantyDays} between 0 and 365`),
+    check('quality_templates_rework_hours_ck', sql`${table.reworkTargetHours} between 1 and 720`),
+    check(
+      'quality_templates_complaint_review_hours_ck',
+      sql`${table.complaintReviewHours} between 1 and 720`,
+    ),
+  ],
+);
+
+export const qualityChecklistItems = pgTable(
+  'quality_checklist_items',
+  {
+    code: varchar('code', { length: 50 }).notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    isRequired: boolean('is_required').notNull().default(true),
+    labelUzCyrl: varchar('label_uz_cyrl', { length: 300 }).notNull(),
+    labelUzLatn: varchar('label_uz_latn', { length: 300 }).notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    templateId: uuid('template_id')
+      .notNull()
+      .references(() => qualityChecklistTemplates.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    uniqueIndex('quality_checklist_items_template_code_uq').on(table.templateId, table.code),
+    check('quality_checklist_items_code_ck', sql`length(trim(${table.code})) > 0`),
+    check('quality_checklist_items_sort_ck', sql`${table.sortOrder} >= 0`),
+  ],
+);
+
+export const qualityInspections = pgTable(
+  'quality_inspections',
+  {
+    actorUserId: uuid('actor_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    attempt: integer('attempt').notNull(),
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    orderVersion: integer('order_version').notNull(),
+    outcome: qualityInspectionOutcomeEnum('outcome').notNull(),
+    results: jsonb('results').$type<readonly InspectionItemInput[]>().notNull(),
+    summary: text('summary').notNull(),
+    templateId: uuid('template_id')
+      .notNull()
+      .references(() => qualityChecklistTemplates.id, { onDelete: 'restrict' }),
+    templateVersion: integer('template_version').notNull(),
+  },
+  (table) => [
+    uniqueIndex('quality_inspections_order_attempt_uq').on(table.orderId, table.attempt),
+    index('quality_inspections_order_outcome_idx').on(
+      table.orderId,
+      table.outcome,
+      table.createdAt,
+    ),
+    check('quality_inspections_attempt_ck', sql`${table.attempt} > 0`),
+    check('quality_inspections_order_version_ck', sql`${table.orderVersion} >= 0`),
+    check('quality_inspections_summary_ck', sql`length(trim(${table.summary})) between 3 and 1000`),
+  ],
+);
+
+export const orderAcceptances = pgTable(
+  'order_acceptances',
+  {
+    acceptedAt: timestamp('accepted_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    actorUserId: uuid('actor_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    id: uuid('id').primaryKey().defaultRandom(),
+    inspectionId: uuid('inspection_id').references(() => qualityInspections.id, {
+      onDelete: 'restrict',
+    }),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    orderVersion: integer('order_version').notNull(),
+    source: qualityAcceptanceSourceEnum('source').notNull(),
+  },
+  (table) => [
+    uniqueIndex('order_acceptances_order_version_uq').on(table.orderId, table.orderVersion),
+    check('order_acceptances_version_ck', sql`${table.orderVersion} > 0`),
+  ],
+);
+
+export const orderWarranties = pgTable(
+  'order_warranties',
+  {
+    endsAt: timestamp('ends_at', { mode: 'date', withTimezone: true }).notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    startsAt: timestamp('starts_at', { mode: 'date', withTimezone: true }).notNull(),
+    warrantyDays: integer('warranty_days').notNull(),
+  },
+  (table) => [
+    uniqueIndex('order_warranties_order_uq').on(table.orderId),
+    index('order_warranties_end_idx').on(table.endsAt),
+    check('order_warranties_days_ck', sql`${table.warrantyDays} between 0 and 365`),
+    check('order_warranties_period_ck', sql`${table.endsAt} >= ${table.startsAt}`),
+  ],
+);
+
+export const qualityFeedback = pgTable(
+  'quality_feedback',
+  {
+    comment: text('comment'),
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    rating: integer('rating').notNull(),
+    requesterUserId: uuid('requester_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+  },
+  (table) => [
+    uniqueIndex('quality_feedback_order_requester_uq').on(table.orderId, table.requesterUserId),
+    check('quality_feedback_rating_ck', sql`${table.rating} between 1 and 5`),
+    check(
+      'quality_feedback_comment_ck',
+      sql`${table.comment} is null or length(trim(${table.comment})) between 3 and 1000`,
+    ),
+  ],
+);
+
+export const qualityComplaints = pgTable(
+  'quality_complaints',
+  {
+    code: varchar('code', { length: 30 }).notNull(),
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    reason: text('reason').notNull(),
+    reopenedAt: timestamp('reopened_at', { mode: 'date', withTimezone: true }),
+    reopenedByUserId: uuid('reopened_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    requesterUserId: uuid('requester_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    reviewDueAt: timestamp('review_due_at', { mode: 'date', withTimezone: true }).notNull(),
+    status: qualityComplaintStatusEnum('status').notNull().default('OPEN'),
+    withinWarranty: boolean('within_warranty').notNull(),
+  },
+  (table) => [
+    uniqueIndex('quality_complaints_code_uq').on(table.code),
+    uniqueIndex('quality_complaints_requester_open_uq')
+      .on(table.orderId, table.requesterUserId)
+      .where(sql`${table.status} = 'OPEN'`),
+    index('quality_complaints_status_due_idx').on(table.status, table.reviewDueAt),
+    check('quality_complaints_reason_ck', sql`length(trim(${table.reason})) between 5 and 2000`),
+  ],
+);
+
+export const qualityReworkDecisions = pgTable(
+  'quality_rework_decisions',
+  {
+    actorUserId: uuid('actor_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    complaintId: uuid('complaint_id').references(() => qualityComplaints.id, {
+      onDelete: 'restrict',
+    }),
+    createdAt,
+    dueAt: timestamp('due_at', { mode: 'date', withTimezone: true }).notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    reason: text('reason').notNull(),
+    source: qualityReworkSourceEnum('source').notNull(),
+  },
+  (table) => [
+    index('quality_rework_order_idx').on(table.orderId, table.createdAt),
+    check('quality_rework_reason_ck', sql`length(trim(${table.reason})) between 3 and 1000`),
   ],
 );
 

@@ -151,6 +151,71 @@ describe('order state machine', () => {
     ).toMatchObject({ to: 'IN_PROGRESS' });
   });
 
+  it('enforces quality completion, rework deadlines, and complaint reopen metadata', () => {
+    const quality: Principal = {
+      grants: [
+        { permission: 'quality.accept', serviceAreaId: 'area-a' },
+        { permission: 'quality.require_rework', serviceAreaId: 'area-a' },
+        { permission: 'quality.reopen', serviceAreaId: 'area-a' },
+      ],
+      userId: 'operator-1',
+    };
+    const awaiting = {
+      ...registered,
+      assignedExecutorUserId: 'executor-1',
+      status: 'AWAITING_ACCEPTANCE' as const,
+    };
+    expect(
+      planOrderTransition(
+        awaiting,
+        'COMPLETED',
+        { acceptanceSource: 'OPERATOR', warrantyDays: 7 },
+        quality,
+        now,
+      ),
+    ).toMatchObject({ to: 'COMPLETED' });
+    expect(
+      planOrderTransition(
+        awaiting,
+        'REWORK_REQUIRED',
+        { reworkDueAt: new Date('2026-07-28T10:00:00Z'), reworkReason: 'Leak remains' },
+        quality,
+        now,
+      ),
+    ).toMatchObject({ to: 'REWORK_REQUIRED' });
+    expect(() =>
+      planOrderTransition(
+        awaiting,
+        'REWORK_REQUIRED',
+        { reworkDueAt: new Date('2026-07-26T10:00:00Z'), reworkReason: 'Leak remains' },
+        quality,
+        now,
+      ),
+    ).toThrowError(expect.objectContaining({ code: 'REWORK_DEADLINE_NOT_FUTURE' }));
+    expect(
+      planOrderTransition(
+        { ...awaiting, status: 'COMPLETED' },
+        'REWORK_REQUIRED',
+        {
+          complaintId: 'complaint-1',
+          reworkDueAt: new Date('2026-07-28T10:00:00Z'),
+          reworkReason: 'Warranty correction',
+        },
+        quality,
+        now,
+      ),
+    ).toMatchObject({ to: 'REWORK_REQUIRED' });
+    expect(() =>
+      planOrderTransition(
+        awaiting,
+        'COMPLETED',
+        { acceptanceSource: 'OPERATOR', warrantyDays: 366 },
+        quality,
+        now,
+      ),
+    ).toThrowError(expect.objectContaining({ code: 'WARRANTY_DAYS_INVALID' }));
+  });
+
   it('rejects an invalid date value', () => {
     expect(() =>
       planOrderTransition(

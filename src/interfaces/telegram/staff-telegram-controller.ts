@@ -4,6 +4,7 @@ import type {
   StaffOperationCommand,
   StaffOperations,
 } from '../../application/triage/staff-operations-service.js';
+import type { InspectionItemInput } from '../../domain/quality/quality-policy.js';
 
 const help = [
   '/queue',
@@ -26,6 +27,14 @@ const help = [
   '/complete ORDER yakuniy hisobot',
   'Foto izohi: /evidence ORDER BEFORE|AFTER izoh',
   '/overdue',
+  '/checklist ORDER',
+  '/inspect ORDER CODE=PASS,CODE=FAIL qisqa xulosa',
+  '/approve ORDER',
+  '/rework ORDER sabab',
+  '/startrework ORDER',
+  '/complaints',
+  '/reopen COMPLAINT_CODE sabab',
+  '/closecomplaint COMPLAINT_CODE resolve|reject sabab',
 ].join('\n');
 
 function required(value: string | undefined, usage: string): string {
@@ -53,6 +62,22 @@ function deadline(value: string | undefined): Date {
     throw new DomainRuleError('COMMAND_INVALID', 'Muddat ISO-8601 formatida bo‘lishi kerak');
   }
   return parsed;
+}
+
+function inspectionResults(value: string | undefined): readonly InspectionItemInput[] {
+  const raw = required(value, '/inspect ORDER CODE=PASS,CODE=FAIL qisqa xulosa');
+  return raw.split(',').map((entry) => {
+    const [rawCode, rawResult] = entry.split('=');
+    const code = required(rawCode, '/inspect ORDER CODE=PASS,CODE=FAIL qisqa xulosa').toUpperCase();
+    const result = required(
+      rawResult,
+      '/inspect ORDER CODE=PASS,CODE=FAIL qisqa xulosa',
+    ).toUpperCase();
+    if (result !== 'PASS' && result !== 'FAIL' && result !== 'NOT_APPLICABLE') {
+      throw new DomainRuleError('COMMAND_INVALID', 'Natija PASS, FAIL yoki NOT_APPLICABLE');
+    }
+    return { code, result };
+  });
 }
 
 function parse(text: string): StaffOperationCommand | 'help' {
@@ -169,6 +194,54 @@ function parse(text: string): StaffOperationCommand | 'help' {
       };
     case '/overdue':
       return { kind: 'overdue' };
+    case '/checklist':
+      return { kind: 'quality-checklist', orderNumber: ticket() };
+    case '/inspect':
+      return {
+        kind: 'quality-inspection',
+        orderNumber: ticket(),
+        results: inspectionResults(parts[1]),
+        summary: required(
+          parts.slice(2).join(' '),
+          '/inspect ORDER CODE=PASS,CODE=FAIL qisqa xulosa',
+        ),
+      };
+    case '/approve':
+      return { kind: 'approve-work', orderNumber: ticket() };
+    case '/rework':
+      return {
+        kind: 'require-rework',
+        orderNumber: ticket(),
+        reason: required(parts.slice(1).join(' '), '/rework ORDER sabab'),
+      };
+    case '/startrework':
+      return { kind: 'start-rework', orderNumber: ticket() };
+    case '/complaints':
+      return { kind: 'complaints' };
+    case '/reopen':
+      return {
+        complaintCode: ticket(),
+        kind: 'reopen',
+        reason: required(parts.slice(1).join(' '), '/reopen COMPLAINT_CODE sabab'),
+      };
+    case '/closecomplaint': {
+      const rawOutcome = required(
+        parts[1],
+        '/closecomplaint COMPLAINT_CODE resolve|reject sabab',
+      ).toLowerCase();
+      if (rawOutcome !== 'resolve' && rawOutcome !== 'reject') {
+        throw new DomainRuleError('COMMAND_INVALID', 'Qaror resolve yoki reject bo‘lishi kerak');
+      }
+      return {
+        complaintCode: ticket(),
+        kind: 'complaint-decision',
+        outcome: rawOutcome === 'resolve' ? 'RESOLVED' : 'REJECTED',
+        reason: required(
+          parts.slice(2).join(' '),
+          '/closecomplaint COMPLAINT_CODE resolve|reject sabab',
+        ),
+      };
+    }
     default:
       return 'help';
   }

@@ -31,6 +31,14 @@ erDiagram
     ORDERS ||--o{ WORK_EVIDENCE : proves
     ORDERS ||--o| ORDER_EXECUTION_SLA_CLOCKS : times
     ORDERS ||--o{ ORDER_ESCALATIONS : escalates
+    SERVICE_CATEGORIES ||--o{ QUALITY_CHECKLIST_TEMPLATES : configures
+    QUALITY_CHECKLIST_TEMPLATES ||--o{ QUALITY_CHECKLIST_ITEMS : contains
+    ORDERS ||--o{ QUALITY_INSPECTIONS : inspects
+    ORDERS ||--o{ ORDER_ACCEPTANCES : accepts
+    ORDERS ||--o| ORDER_WARRANTIES : warrants
+    ORDERS ||--o{ QUALITY_FEEDBACK : rates
+    ORDERS ||--o{ QUALITY_COMPLAINTS : receives
+    ORDERS ||--o{ QUALITY_REWORK_DECISIONS : reopens
     SERVICE_REQUESTS ||--o{ REQUEST_STATUS_HISTORY : records
     SERVICE_REQUESTS ||--o{ ATTACHMENTS : includes
     ORDERS ||--o{ ORDER_STATUS_HISTORY : records
@@ -39,15 +47,16 @@ erDiagram
 
 ## Tables and purpose
 
-| Group            | Tables                                                                                                                                                | Critical constraints/indexes                                                                                                                            |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Access           | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`                                                                                     | unique Telegram ID; active status; unique global/scoped role grants; service-area lookup                                                                |
-| Catalog/location | `service_areas`, `service_categories`, `request_sources`, `addresses`                                                                                 | unique stable codes; active flags; valid paired latitude/longitude and ranges                                                                           |
-| Intake           | `service_requests`, `request_status_history`                                                                                                          | unique ticket; nonblank description; nonnegative optimistic version; unique request/version history                                                     |
-| Telegram intake  | `resident_profiles`, `privacy_consents`, `telegram_intake_sessions`, `telegram_update_receipts`, `attachments`                                        | versioned consent; own contact profile; one resumable session per user; globally unique update/submission IDs; controlled photo sizes/types             |
-| Portfolio        | `orders`, `order_request_links`, `order_status_history`                                                                                               | unique order number; nonnegative version; one order per initial request; area/status/deadline and executor/status indexes; unique order/version history |
-| Execution        | `executor_profiles`, `executor_category_capabilities`, `assignments`, `work_logs`, `work_evidence`, `order_execution_sla_clocks`, `order_escalations` | available/category-capable executors; one active assignment; controlled evidence; one active deadline escalation                                        |
-| Audit            | `audit_logs`                                                                                                                                          | entity and actor timelines; database trigger rejects update/delete                                                                                      |
+| Group            | Tables                                                                                                                                                                                         | Critical constraints/indexes                                                                                                                            |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Access           | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`                                                                                                                              | unique Telegram ID; active status; unique global/scoped role grants; service-area lookup                                                                |
+| Catalog/location | `service_areas`, `service_categories`, `request_sources`, `addresses`                                                                                                                          | unique stable codes; active flags; valid paired latitude/longitude and ranges                                                                           |
+| Intake           | `service_requests`, `request_status_history`                                                                                                                                                   | unique ticket; nonblank description; nonnegative optimistic version; unique request/version history                                                     |
+| Telegram intake  | `resident_profiles`, `privacy_consents`, `telegram_intake_sessions`, `telegram_update_receipts`, `attachments`                                                                                 | versioned consent; own contact profile; one resumable session per user; globally unique update/submission IDs; controlled photo sizes/types             |
+| Portfolio        | `orders`, `order_request_links`, `order_status_history`                                                                                                                                        | unique order number; nonnegative version; one order per initial request; area/status/deadline and executor/status indexes; unique order/version history |
+| Execution        | `executor_profiles`, `executor_category_capabilities`, `assignments`, `work_logs`, `work_evidence`, `order_execution_sla_clocks`, `order_escalations`                                          | available/category-capable executors; one active assignment; controlled evidence; one active deadline escalation                                        |
+| Quality          | `quality_checklist_templates`, `quality_checklist_items`, `quality_inspections`, `order_acceptances`, `order_warranties`, `quality_feedback`, `quality_complaints`, `quality_rework_decisions` | one active versioned policy per category; complete inspection snapshot; versioned acceptance; one rating and one open complaint per resident/order      |
+| Audit            | `audit_logs`                                                                                                                                                                                   | entity and actor timelines; database trigger rejects update/delete                                                                                      |
 
 All IDs are UUIDs generated by PostgreSQL. All event timestamps are timezone-aware. Foreign-key deletion policies prefer `RESTRICT`; only membership/link records owned by a parent use cascade deletion. Audit records intentionally have a polymorphic entity reference and are not deleted with an aggregate.
 
@@ -71,4 +80,4 @@ All IDs are UUIDs generated by PostgreSQL. All event timestamps are timezone-awa
 
 ## Seed baseline
 
-The idempotent seed creates one `DEMO` service area; Plumbing, Electrical, Repair, and Landscaping categories; six request sources; all declared permissions; and Resident, Operator/Manager, Executor, and Administrator roles. It creates no fake residents, staff accounts, executor profiles, or orders.
+The idempotent seed creates one `DEMO` service area; Plumbing, Electrical, Repair, and Landscaping categories; their version-one quality checklists; six request sources; all declared permissions; and Resident, Operator/Manager, Executor, and Administrator roles. Electrical inspection is required. It creates no fake residents, staff accounts, executor profiles, or orders.

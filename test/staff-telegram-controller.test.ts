@@ -96,4 +96,48 @@ describe('staff Telegram controller', () => {
       orderNumber: 'ORD-1',
     });
   });
+
+  it('parses checklist, inspection, acceptance, complaint, and reopen commands', async () => {
+    const execute = vi.fn().mockResolvedValue('ok');
+    const controller = new StaffTelegramController({ execute });
+    await controller.handle(2n, '/checklist ord-1');
+    await controller.handle(
+      2n,
+      '/inspect ord-1 WORK_COMPLETE=PASS,RESULT_TESTED=FAIL Tekshiruv yakuni',
+    );
+    await controller.handle(2n, '/approve ord-1');
+    await controller.handle(2n, '/rework ord-1 Oqish davom etmoqda');
+    await controller.handle(2n, '/startrework ord-1');
+    await controller.handle(2n, '/complaints');
+    await controller.handle(2n, '/reopen cmp-1 Kafolat tuzatishi');
+    await controller.handle(2n, '/closecomplaint cmp-1 resolve Tuzatish qabul qilindi');
+    expect(execute).toHaveBeenNthCalledWith(2, 2n, {
+      kind: 'quality-inspection',
+      orderNumber: 'ORD-1',
+      results: [
+        { code: 'WORK_COMPLETE', result: 'PASS' },
+        { code: 'RESULT_TESTED', result: 'FAIL' },
+      ],
+      summary: 'Tekshiruv yakuni',
+    });
+    expect(execute).toHaveBeenNthCalledWith(7, 2n, {
+      complaintCode: 'CMP-1',
+      kind: 'reopen',
+      reason: 'Kafolat tuzatishi',
+    });
+    expect(execute).toHaveBeenLastCalledWith(2n, {
+      complaintCode: 'CMP-1',
+      kind: 'complaint-decision',
+      outcome: 'RESOLVED',
+      reason: 'Tuzatish qabul qilindi',
+    });
+  });
+
+  it('rejects malformed inspection outcomes', async () => {
+    const controller = new StaffTelegramController({ execute: vi.fn() });
+    await expect(controller.handle(2n, '/inspect ORD-1 WORK=MAYBE Xulosa')).rejects.toThrow(/PASS/);
+    await expect(controller.handle(2n, '/closecomplaint CMP-1 maybe Sabab')).rejects.toThrow(
+      /resolve/,
+    );
+  });
 });

@@ -33,6 +33,14 @@ The Telegram account must map to an active `users.telegram_user_id` and an area-
 /unblock ORDER resolution note
 /complete ORDER completion summary
 /overdue
+/checklist ORDER
+/inspect ORDER WORK_COMPLETE=PASS,RESULT_TESTED=PASS,AREA_CLEAN=PASS summary
+/approve ORDER
+/rework ORDER reason
+/startrework ORDER
+/complaints
+/reopen COMPLAINT_CODE reason
+/closecomplaint COMPLAINT_CODE resolve|reject reason
 ```
 
 Send before/after evidence as a Telegram photo with `/evidence ORDER BEFORE optional note` or `/evidence ORDER AFTER optional note` in its caption.
@@ -47,6 +55,10 @@ Residents answer a missing-information request in the resident bot with `/respon
 - Include a timezone offset or `Z` in deadlines; ambiguous timestamps are rejected.
 - Executors accept before progress or `AFTER` evidence. A decline preserves the attempt and returns the order for reassignment.
 - Run `/overdue` at the start and end of each operator shift until CP-07 automation exists.
+- Use `/checklist` before `/inspect`; required items cannot be `NOT_APPLICABLE`.
+- `/approve` may require a passing inspection. `/rework` creates a fresh executor assignment and SLA.
+- `/complaints` is a review queue. A complaint does not reopen work until authorized `/reopen` records a reason.
+- Close an open case with `/closecomplaint`; a reopened case cannot resolve until corrected work is completed and accepted.
 - Telegram evidence is supporting pilot material, not a contractual archive.
 - Record a specific factual reason for priority override or rejection.
 - On a concurrency error, reload the queue/status before retrying.

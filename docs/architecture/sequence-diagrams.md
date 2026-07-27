@@ -111,3 +111,31 @@ sequenceDiagram
     end
     App->>DB: status history + audit; commit atomically
 ```
+
+## Quality acceptance and controlled complaint reopen
+
+```mermaid
+sequenceDiagram
+    actor Executor
+    actor Resident
+    actor Operator
+    participant Bot as Telegram bots
+    participant Quality as Quality service
+    participant DB as PostgreSQL
+
+    Executor->>Bot: /complete ORDER summary
+    Bot->>DB: AWAITING_ACCEPTANCE + completion history
+    Operator->>Bot: /checklist ORDER, /inspect ORDER results
+    Quality->>DB: versioned inspection + audit
+    Resident->>Bot: /accept ORDER
+    Quality->>DB: verify owner + policy + passing inspection
+    Quality->>DB: COMPLETED + acceptance + warranty + history/audit
+    Resident->>Bot: /rate ORDER 1..5 comment
+    Quality->>DB: one bounded rating
+    Resident->>Bot: /complaint ORDER reason
+    Quality->>DB: OPEN complaint + review deadline (order remains COMPLETED)
+    Operator->>Bot: /reopen COMPLAINT reason
+    Quality->>DB: verify scope/open link; REWORK_REQUIRED + assignment + SLA + audit
+    Executor->>Bot: /startrework ORDER
+    Quality->>DB: IN_PROGRESS + accept rework assignment + SLA start
+```
