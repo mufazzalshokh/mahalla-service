@@ -1,0 +1,23 @@
+# Initial risk register
+
+Scale: likelihood and impact are Low, Medium or High. Residual ratings are targets
+after the stated response is implemented.
+
+| ID    | Risk                                                                             | Likelihood | Impact | Response                                                                                           | Owner                | Residual |
+| ----- | -------------------------------------------------------------------------------- | ---------- | ------ | -------------------------------------------------------------------------------------------------- | -------------------- | -------- |
+| R-001 | Educational slides are treated as contractual rules.                             | High       | High   | Trace slide evidence, label interpretations and obtain checkpoint approval.                        | Product owner        | Medium   |
+| R-002 | Scope expands into finance, dashboards or integrations before the first sale.    | High       | High   | Enforce MVP exclusions and checkpoint approval.                                                    | Product owner        | Medium   |
+| R-003 | Telegram retry/concurrency creates duplicate requests or transitions.            | High       | High   | Unique update/submission keys, transactions, optimistic locking and concurrency tests.             | Engineering          | Low      |
+| R-004 | Unauthorized Telegram user invokes staff operations.                             | Medium     | High   | Separate staff bot, explicit staff linking, backend permission/scope checks and auth tests.        | Security/engineering | Low      |
+| R-005 | Resident PII or bot tokens appear in logs/configuration.                         | Medium     | High   | Typed secrets, log redaction, safe metadata and automated redaction tests.                         | Engineering          | Low      |
+| R-006 | Telegram-held photos are unavailable when later treated as contractual evidence. | Medium     | High   | Label pilot evidence non-contractual and introduce durable private storage before contractual use. | Product owner        | Medium   |
+| R-007 | Local/free demonstration environment is mistaken for production reliability.     | Medium     | High   | Synthetic data only locally; paid deployment requires backups, restart and monitoring checks.      | Operations           | Low      |
+| R-008 | Arbitrary scoring disadvantages important but expensive work.                    | Medium     | High   | Separate impact from feasibility, expose factors/version and require override reasons.             | Operations           | Medium   |
+| R-009 | Incorrect duplicate merging hides the number of affected residents.              | Medium     | High   | Suggest only; preserve original requests; operator confirms shared incident.                       | Operator             | Low      |
+| R-010 | Combined pilot roles weaken segregation of duties.                               | Medium     | Medium | Keep granular permissions/audit even when one person holds multiple roles.                         | Administrator        | Medium   |
+| R-011 | Uzbek translations or consent wording are misleading.                            | Medium     | High   | Resource files, human review and versioned approved text before real use.                          | MCK sponsor          | Low      |
+| R-012 | One inexpensive host fails and loses operational data.                           | Medium     | High   | Persistent volumes, daily encrypted off-host backups and restore rehearsal.                        | Operations           | Medium   |
+| R-013 | Long polling runs in two replicas and processes updates inconsistently.          | Low        | High   | Deployment lock/single active consumer, graceful shutdown and idempotency at the database.         | Engineering          | Low      |
+| R-014 | Notification side effects are lost after a successful status transaction.        | Medium     | Medium | Transactional outbox, retry schedule and failed-delivery visibility.                               | Engineering          | Low      |
+| R-015 | SLA language creates promises MCK cannot meet.                                   | Medium     | High   | Keep targets internal/configurable until an operational owner approves commitments.                | MCK sponsor          | Low      |
+| R-016 | Indefinite retention creates privacy and storage exposure.                       | Medium     | High   | Scheduled retention/anonymization design and policy confirmation before pilot.                     | MCK/legal            | Medium   |

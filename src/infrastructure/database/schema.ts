@@ -1,0 +1,802 @@
+import { sql } from 'drizzle-orm';
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  integer,
+  jsonb,
+  numeric,
+  pgEnum,
+  pgSequence,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
+
+import { orderStatuses } from '../../domain/orders/order-state-machine.js';
+import { requestStatuses } from '../../domain/requests/request-state-machine.js';
+import type { IntakeDraft, IntakeResponse } from '../../application/intake/intake-types.js';
+
+const createdAt = timestamp('created_at', { mode: 'date', withTimezone: true })
+  .notNull()
+  .defaultNow();
+const updatedAt = timestamp('updated_at', { mode: 'date', withTimezone: true })
+  .notNull()
+  .defaultNow();
+
+export const userStatusEnum = pgEnum('user_status', ['ACTIVE', 'SUSPENDED', 'DISABLED']);
+export const requestStatusEnum = pgEnum('request_status', requestStatuses);
+export const orderStatusEnum = pgEnum('order_status', orderStatuses);
+export const priorityBandEnum = pgEnum('priority_band', [
+  'URGENT',
+  'IMPORTANT',
+  'PLANNED',
+  'MONITOR',
+]);
+export const duplicateMatchStatusEnum = pgEnum('duplicate_match_status', [
+  'SUGGESTED',
+  'CONFIRMED',
+  'DISMISSED',
+]);
+export const informationMessageDirectionEnum = pgEnum('information_message_direction', [
+  'REQUEST',
+  'RESPONSE',
+]);
+export const assignmentStatusEnum = pgEnum('assignment_status', [
+  'PENDING',
+  'ACCEPTED',
+  'DECLINED',
+  'COMPLETED',
+  'CANCELLED',
+]);
+export const workLogTypeEnum = pgEnum('work_log_type', [
+  'PROGRESS',
+  'BLOCKED',
+  'UNBLOCKED',
+  'COMPLETION',
+]);
+export const workEvidencePhaseEnum = pgEnum('work_evidence_phase', ['BEFORE', 'AFTER']);
+export const escalationStatusEnum = pgEnum('escalation_status', [
+  'OPEN',
+  'ACKNOWLEDGED',
+  'RESOLVED',
+]);
+export const escalationTypeEnum = pgEnum('escalation_type', ['DEADLINE_OVERDUE']);
+export const serviceRequestTicketSequence = pgSequence('service_request_ticket_seq', {
+  startWith: 1,
+});
+export const orderPortfolioSequence = pgSequence('order_portfolio_seq', { startWith: 1 });
+
+export const serviceAreas = pgTable(
+  'service_areas',
+  {
+    code: varchar('code', { length: 50 }).notNull(),
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    isActive: boolean('is_active').notNull().default(true),
+    nameUzCyrl: varchar('name_uz_cyrl', { length: 200 }).notNull(),
+    nameUzLatn: varchar('name_uz_latn', { length: 200 }).notNull(),
+    updatedAt,
+  },
+  (table) => [
+    uniqueIndex('service_areas_code_uq').on(table.code),
+    check('service_areas_code_nonempty_ck', sql`length(trim(${table.code})) > 0`),
+  ],
+);
+
+export const users = pgTable(
+  'users',
+  {
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    status: userStatusEnum('status').notNull().default('ACTIVE'),
+    telegramUserId: bigint('telegram_user_id', { mode: 'bigint' }),
+    updatedAt,
+  },
+  (table) => [
+    uniqueIndex('users_telegram_user_id_uq').on(table.telegramUserId),
+    index('users_status_idx').on(table.status),
+  ],
+);
+
+export const residentProfiles = pgTable(
+  'resident_profiles',
+  {
+    language: varchar('language', { length: 20 }).notNull(),
+    phone: varchar('phone', { length: 16 }),
+    updatedAt,
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    check('resident_profiles_language_ck', sql`${table.language} in ('uz-Latn', 'uz-Cyrl')`),
+    check(
+      'resident_profiles_phone_ck',
+      sql`${table.phone} is null or ${table.phone} ~ '^\\+[1-9][0-9]{7,14}$'`,
+    ),
+  ],
+);
+
+export const privacyConsents = pgTable(
+  'privacy_consents',
+  {
+    acceptedAt: timestamp('accepted_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    noticeVersion: varchar('notice_version', { length: 50 }).notNull(),
+    telegramUpdateId: bigint('telegram_update_id', { mode: 'bigint' }).notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+  },
+  (table) => [
+    uniqueIndex('privacy_consents_user_version_uq').on(table.userId, table.noticeVersion),
+    uniqueIndex('privacy_consents_update_uq').on(table.telegramUpdateId),
+  ],
+);
+
+export const telegramIntakeSessions = pgTable(
+  'telegram_intake_sessions',
+  {
+    draft: jsonb('draft').$type<IntakeDraft>().notNull().default({ photos: [] }),
+    language: varchar('language', { length: 20 }),
+    step: varchar('step', { length: 40 }).notNull(),
+    updatedAt,
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    check(
+      'telegram_intake_sessions_step_ck',
+      sql`${table.step} in ('CHOOSE_LANGUAGE', 'ACCEPT_PRIVACY', 'SHARE_CONTACT', 'CHOOSE_CATEGORY', 'ENTER_DESCRIPTION', 'ENTER_ADDRESS', 'ADD_PHOTOS', 'REVIEW', 'SUBMITTED')`,
+    ),
+    check(
+      'telegram_intake_sessions_language_ck',
+      sql`${table.language} is null or ${table.language} in ('uz-Latn', 'uz-Cyrl')`,
+    ),
+    check('telegram_intake_sessions_version_ck', sql`${table.version} >= 0`),
+  ],
+);
+
+export const telegramUpdateReceipts = pgTable(
+  'telegram_update_receipts',
+  {
+    processedAt: timestamp('processed_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    response: jsonb('response').$type<IntakeResponse>().notNull(),
+    telegramUserId: bigint('telegram_user_id', { mode: 'bigint' }).notNull(),
+    updateId: bigint('update_id', { mode: 'bigint' }).primaryKey(),
+  },
+  (table) => [
+    index('telegram_update_receipts_user_idx').on(table.telegramUserId, table.processedAt),
+  ],
+);
+
+export const roles = pgTable(
+  'roles',
+  {
+    code: varchar('code', { length: 80 }).notNull(),
+    description: text('description').notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+  },
+  (table) => [uniqueIndex('roles_code_uq').on(table.code)],
+);
+
+export const permissions = pgTable(
+  'permissions',
+  {
+    code: varchar('code', { length: 120 }).notNull(),
+    description: text('description').notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+  },
+  (table) => [uniqueIndex('permissions_code_uq').on(table.code)],
+);
+
+export const rolePermissions = pgTable(
+  'role_permissions',
+  {
+    permissionId: uuid('permission_id')
+      .notNull()
+      .references(() => permissions.id, { onDelete: 'restrict' }),
+    roleId: uuid('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+  },
+  (table) => [primaryKey({ columns: [table.roleId, table.permissionId] })],
+);
+
+export const userRoles = pgTable(
+  'user_roles',
+  {
+    createdAt,
+    grantedByUserId: uuid('granted_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    id: uuid('id').primaryKey().defaultRandom(),
+    roleId: uuid('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'restrict' }),
+    serviceAreaId: uuid('service_area_id').references(() => serviceAreas.id, {
+      onDelete: 'restrict',
+    }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    uniqueIndex('user_roles_global_uq')
+      .on(table.userId, table.roleId)
+      .where(sql`${table.serviceAreaId} is null`),
+    uniqueIndex('user_roles_scoped_uq')
+      .on(table.userId, table.roleId, table.serviceAreaId)
+      .where(sql`${table.serviceAreaId} is not null`),
+    index('user_roles_scope_idx').on(table.serviceAreaId, table.userId),
+  ],
+);
+
+export const serviceCategories = pgTable(
+  'service_categories',
+  {
+    code: varchar('code', { length: 80 }).notNull(),
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    isActive: boolean('is_active').notNull().default(true),
+    nameUzCyrl: varchar('name_uz_cyrl', { length: 200 }).notNull(),
+    nameUzLatn: varchar('name_uz_latn', { length: 200 }).notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    updatedAt,
+  },
+  (table) => [
+    uniqueIndex('service_categories_code_uq').on(table.code),
+    check('service_categories_sort_order_ck', sql`${table.sortOrder} >= 0`),
+  ],
+);
+
+export const executorProfiles = pgTable(
+  'executor_profiles',
+  {
+    code: varchar('code', { length: 50 }).notNull(),
+    displayName: varchar('display_name', { length: 200 }).notNull(),
+    isAvailable: boolean('is_available').notNull().default(true),
+    updatedAt,
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    uniqueIndex('executor_profiles_code_uq').on(table.code),
+    check('executor_profiles_code_nonempty_ck', sql`length(trim(${table.code})) > 0`),
+    check(
+      'executor_profiles_display_name_nonempty_ck',
+      sql`length(trim(${table.displayName})) > 0`,
+    ),
+  ],
+);
+
+export const executorCategoryCapabilities = pgTable(
+  'executor_category_capabilities',
+  {
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => serviceCategories.id, { onDelete: 'cascade' }),
+    executorUserId: uuid('executor_user_id')
+      .notNull()
+      .references(() => executorProfiles.userId, { onDelete: 'cascade' }),
+  },
+  (table) => [primaryKey({ columns: [table.executorUserId, table.categoryId] })],
+);
+
+export const requestSources = pgTable(
+  'request_sources',
+  {
+    code: varchar('code', { length: 80 }).notNull(),
+    confidenceScore: integer('confidence_score').notNull().default(3),
+    id: uuid('id').primaryKey().defaultRandom(),
+    isActive: boolean('is_active').notNull().default(true),
+    nameUzCyrl: varchar('name_uz_cyrl', { length: 200 }).notNull(),
+    nameUzLatn: varchar('name_uz_latn', { length: 200 }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('request_sources_code_uq').on(table.code),
+    check(
+      'request_sources_confidence_score_ck',
+      sql`${table.confidenceScore} >= 0 and ${table.confidenceScore} <= 5`,
+    ),
+  ],
+);
+
+export const addresses = pgTable(
+  'addresses',
+  {
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    landmark: varchar('landmark', { length: 300 }),
+    latitude: numeric('latitude', { precision: 9, scale: 6 }),
+    line1: varchar('line1', { length: 500 }).notNull(),
+    longitude: numeric('longitude', { precision: 9, scale: 6 }),
+    serviceAreaId: uuid('service_area_id')
+      .notNull()
+      .references(() => serviceAreas.id, { onDelete: 'restrict' }),
+  },
+  (table) => [
+    index('addresses_service_area_idx').on(table.serviceAreaId),
+    check(
+      'addresses_coordinates_pair_ck',
+      sql`(${table.latitude} is null and ${table.longitude} is null) or (${table.latitude} is not null and ${table.longitude} is not null)`,
+    ),
+    check(
+      'addresses_latitude_ck',
+      sql`${table.latitude} is null or (${table.latitude} >= -90 and ${table.latitude} <= 90)`,
+    ),
+    check(
+      'addresses_longitude_ck',
+      sql`${table.longitude} is null or (${table.longitude} >= -180 and ${table.longitude} <= 180)`,
+    ),
+  ],
+);
+
+export const serviceRequests = pgTable(
+  'service_requests',
+  {
+    addressId: uuid('address_id')
+      .notNull()
+      .references(() => addresses.id, { onDelete: 'restrict' }),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => serviceCategories.id, { onDelete: 'restrict' }),
+    createdAt,
+    cancellationReason: text('cancellation_reason'),
+    description: text('description').notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    informationRequest: text('information_request'),
+    rejectionReason: text('rejection_reason'),
+    requesterUserId: uuid('requester_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    sourceId: uuid('source_id')
+      .notNull()
+      .references(() => requestSources.id, { onDelete: 'restrict' }),
+    submissionUpdateId: bigint('submission_update_id', { mode: 'bigint' }),
+    status: requestStatusEnum('status').notNull().default('RECEIVED'),
+    submittedAt: timestamp('submitted_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    ticketNumber: varchar('ticket_number', { length: 30 }).notNull(),
+    updatedAt,
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex('service_requests_ticket_number_uq').on(table.ticketNumber),
+    uniqueIndex('service_requests_submission_update_uq').on(table.submissionUpdateId),
+    index('service_requests_status_submitted_idx').on(table.status, table.submittedAt),
+    index('service_requests_requester_idx').on(table.requesterUserId, table.submittedAt),
+    check('service_requests_version_ck', sql`${table.version} >= 0`),
+    check('service_requests_description_ck', sql`length(trim(${table.description})) > 0`),
+  ],
+);
+
+export const requestInformationMessages = pgTable(
+  'request_information_messages',
+  {
+    actorUserId: uuid('actor_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    createdAt,
+    direction: informationMessageDirectionEnum('direction').notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    message: text('message').notNull(),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => serviceRequests.id, { onDelete: 'restrict' }),
+  },
+  (table) => [
+    index('request_information_messages_timeline_idx').on(table.requestId, table.createdAt),
+    check(
+      'request_information_messages_message_ck',
+      sql`length(trim(${table.message})) between 3 and 2000`,
+    ),
+  ],
+);
+
+export const requestDuplicateMatches = pgTable(
+  'request_duplicate_matches',
+  {
+    candidateRequestId: uuid('candidate_request_id')
+      .notNull()
+      .references(() => serviceRequests.id, { onDelete: 'restrict' }),
+    createdAt,
+    decidedAt: timestamp('decided_at', { mode: 'date', withTimezone: true }),
+    decidedByUserId: uuid('decided_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    id: uuid('id').primaryKey().defaultRandom(),
+    reasons: jsonb('reasons').$type<readonly string[]>().notNull(),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => serviceRequests.id, { onDelete: 'restrict' }),
+    score: numeric('score', { precision: 5, scale: 2 }).notNull(),
+    status: duplicateMatchStatusEnum('status').notNull().default('SUGGESTED'),
+  },
+  (table) => [
+    uniqueIndex('request_duplicate_matches_pair_uq').on(table.requestId, table.candidateRequestId),
+    index('request_duplicate_matches_candidate_idx').on(table.candidateRequestId, table.status),
+    check(
+      'request_duplicate_matches_distinct_ck',
+      sql`${table.requestId} <> ${table.candidateRequestId}`,
+    ),
+    check('request_duplicate_matches_score_ck', sql`${table.score} >= 0 and ${table.score} <= 100`),
+  ],
+);
+
+export const priorityModels = pgTable(
+  'priority_models',
+  {
+    code: varchar('code', { length: 80 }).notNull(),
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    isActive: boolean('is_active').notNull().default(false),
+    version: integer('version').notNull(),
+  },
+  (table) => [
+    uniqueIndex('priority_models_code_version_uq').on(table.code, table.version),
+    uniqueIndex('priority_models_active_code_uq')
+      .on(table.code)
+      .where(sql`${table.isActive} = true`),
+    check('priority_models_version_ck', sql`${table.version} > 0`),
+  ],
+);
+
+export const priorityCriteria = pgTable(
+  'priority_criteria',
+  {
+    code: varchar('code', { length: 80 }).notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    maximumValue: integer('maximum_value').notNull().default(5),
+    modelId: uuid('model_id')
+      .notNull()
+      .references(() => priorityModels.id, { onDelete: 'cascade' }),
+    sortOrder: integer('sort_order').notNull().default(0),
+    weight: integer('weight').notNull(),
+  },
+  (table) => [
+    uniqueIndex('priority_criteria_model_code_uq').on(table.modelId, table.code),
+    check(
+      'priority_criteria_code_ck',
+      sql`${table.code} in ('SAFETY_RISK', 'URGENCY', 'RESIDENTS_AFFECTED', 'SOCIAL_IMPACT', 'SOURCE_CONFIDENCE')`,
+    ),
+    check(
+      'priority_criteria_values_ck',
+      sql`${table.maximumValue} > 0 and ${table.weight} > 0 and ${table.sortOrder} >= 0`,
+    ),
+  ],
+);
+
+export const priorityAssessments = pgTable(
+  'priority_assessments',
+  {
+    assessedAt: timestamp('assessed_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    assessedByUserId: uuid('assessed_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    calculatedBand: priorityBandEnum('calculated_band').notNull(),
+    calculatedScore: numeric('calculated_score', { precision: 5, scale: 2 }).notNull(),
+    explanation: text('explanation').notNull(),
+    factors: jsonb('factors').$type<Record<string, unknown>>().notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    modelId: uuid('model_id')
+      .notNull()
+      .references(() => priorityModels.id, { onDelete: 'restrict' }),
+    overrideBand: priorityBandEnum('override_band'),
+    overrideReason: text('override_reason'),
+    overrideScore: numeric('override_score', { precision: 5, scale: 2 }),
+    overriddenAt: timestamp('overridden_at', { mode: 'date', withTimezone: true }),
+    overriddenByUserId: uuid('overridden_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => serviceRequests.id, { onDelete: 'restrict' }),
+  },
+  (table) => [
+    uniqueIndex('priority_assessments_request_uq').on(table.requestId),
+    index('priority_assessments_band_score_idx').on(
+      table.overrideBand,
+      table.calculatedBand,
+      table.calculatedScore,
+    ),
+    check(
+      'priority_assessments_calculated_score_ck',
+      sql`${table.calculatedScore} >= 0 and ${table.calculatedScore} <= 100`,
+    ),
+    check(
+      'priority_assessments_override_complete_ck',
+      sql`(${table.overrideScore} is null and ${table.overrideBand} is null and ${table.overrideReason} is null and ${table.overriddenByUserId} is null and ${table.overriddenAt} is null) or (${table.overrideScore} between 0 and 100 and ${table.overrideBand} is not null and length(trim(${table.overrideReason})) between 10 and 1000 and ${table.overriddenByUserId} is not null and ${table.overriddenAt} is not null)`,
+    ),
+  ],
+);
+
+export const attachments = pgTable(
+  'attachments',
+  {
+    createdAt,
+    fileSize: integer('file_size').notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    mediaType: varchar('media_type', { length: 100 }).notNull().default('image/jpeg'),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => serviceRequests.id, { onDelete: 'cascade' }),
+    telegramFileId: text('telegram_file_id').notNull(),
+    telegramFileUniqueId: varchar('telegram_file_unique_id', { length: 200 }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('attachments_request_file_uq').on(table.requestId, table.telegramFileUniqueId),
+    index('attachments_request_idx').on(table.requestId, table.createdAt),
+    check('attachments_file_size_ck', sql`${table.fileSize} > 0 and ${table.fileSize} <= 10485760`),
+    check('attachments_media_type_ck', sql`${table.mediaType} in ('image/jpeg', 'image/png')`),
+  ],
+);
+
+export const orders = pgTable(
+  'orders',
+  {
+    blockerReason: text('blocker_reason'),
+    cancellationReason: text('cancellation_reason'),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => serviceCategories.id, { onDelete: 'restrict' }),
+    completedAt: timestamp('completed_at', { mode: 'date', withTimezone: true }),
+    completionSummary: text('completion_summary'),
+    createdAt,
+    currentExecutorUserId: uuid('current_executor_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    dueAt: timestamp('due_at', { mode: 'date', withTimezone: true }),
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderNumber: varchar('order_number', { length: 30 }).notNull(),
+    priorityAssessmentId: uuid('priority_assessment_id').references(() => priorityAssessments.id, {
+      onDelete: 'restrict',
+    }),
+    priorityBand: priorityBandEnum('priority_band'),
+    priorityScore: numeric('priority_score', { precision: 5, scale: 2 }),
+    reworkReason: text('rework_reason'),
+    serviceAreaId: uuid('service_area_id')
+      .notNull()
+      .references(() => serviceAreas.id, { onDelete: 'restrict' }),
+    status: orderStatusEnum('status').notNull().default('REGISTERED'),
+    updatedAt,
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex('orders_order_number_uq').on(table.orderNumber),
+    index('orders_portfolio_idx').on(table.serviceAreaId, table.status, table.dueAt),
+    index('orders_executor_idx').on(table.currentExecutorUserId, table.status),
+    check('orders_version_ck', sql`${table.version} >= 0`),
+    check(
+      'orders_priority_score_ck',
+      sql`${table.priorityScore} is null or (${table.priorityScore} >= 0 and ${table.priorityScore} <= 100)`,
+    ),
+  ],
+);
+
+export const assignments = pgTable(
+  'assignments',
+  {
+    assignedAt: timestamp('assigned_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    assignedByUserId: uuid('assigned_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    dueAt: timestamp('due_at', { mode: 'date', withTimezone: true }).notNull(),
+    executorUserId: uuid('executor_user_id')
+      .notNull()
+      .references(() => executorProfiles.userId, { onDelete: 'restrict' }),
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    responseReason: text('response_reason'),
+    respondedAt: timestamp('responded_at', { mode: 'date', withTimezone: true }),
+    status: assignmentStatusEnum('status').notNull().default('PENDING'),
+  },
+  (table) => [
+    uniqueIndex('assignments_order_active_uq')
+      .on(table.orderId)
+      .where(sql`${table.status} in ('PENDING', 'ACCEPTED')`),
+    index('assignments_executor_status_idx').on(table.executorUserId, table.status, table.dueAt),
+    check('assignments_due_after_assigned_ck', sql`${table.dueAt} > ${table.assignedAt}`),
+  ],
+);
+
+export const orderExecutionSlaClocks = pgTable(
+  'order_execution_sla_clocks',
+  {
+    dueAt: timestamp('due_at', { mode: 'date', withTimezone: true }).notNull(),
+    orderId: uuid('order_id')
+      .primaryKey()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    pausedAt: timestamp('paused_at', { mode: 'date', withTimezone: true }),
+    pausedSeconds: integer('paused_seconds').notNull().default(0),
+    startedAt: timestamp('started_at', { mode: 'date', withTimezone: true }),
+    stoppedAt: timestamp('stopped_at', { mode: 'date', withTimezone: true }),
+    updatedAt,
+  },
+  (table) => [
+    index('order_execution_sla_due_idx').on(table.dueAt, table.stoppedAt),
+    check('order_execution_sla_paused_seconds_ck', sql`${table.pausedSeconds} >= 0`),
+  ],
+);
+
+export const workLogs = pgTable(
+  'work_logs',
+  {
+    actorUserId: uuid('actor_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    logType: workLogTypeEnum('log_type').notNull(),
+    note: text('note').notNull(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+  },
+  (table) => [
+    index('work_logs_order_timeline_idx').on(table.orderId, table.createdAt),
+    check('work_logs_note_ck', sql`length(trim(${table.note})) between 3 and 2000`),
+  ],
+);
+
+export const workEvidence = pgTable(
+  'work_evidence',
+  {
+    actorUserId: uuid('actor_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    createdAt,
+    fileSize: integer('file_size').notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    mediaType: varchar('media_type', { length: 100 }).notNull().default('image/jpeg'),
+    note: varchar('note', { length: 500 }),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    phase: workEvidencePhaseEnum('phase').notNull(),
+    telegramFileId: text('telegram_file_id').notNull(),
+    telegramFileUniqueId: varchar('telegram_file_unique_id', { length: 200 }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('work_evidence_file_uq').on(table.orderId, table.telegramFileUniqueId),
+    index('work_evidence_order_phase_idx').on(table.orderId, table.phase, table.createdAt),
+    check(
+      'work_evidence_file_size_ck',
+      sql`${table.fileSize} > 0 and ${table.fileSize} <= 10485760`,
+    ),
+    check('work_evidence_media_type_ck', sql`${table.mediaType} in ('image/jpeg', 'image/png')`),
+  ],
+);
+
+export const orderEscalations = pgTable(
+  'order_escalations',
+  {
+    acknowledgedAt: timestamp('acknowledged_at', { mode: 'date', withTimezone: true }),
+    acknowledgedByUserId: uuid('acknowledged_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    resolvedAt: timestamp('resolved_at', { mode: 'date', withTimezone: true }),
+    status: escalationStatusEnum('status').notNull().default('OPEN'),
+    type: escalationTypeEnum('type').notNull(),
+  },
+  (table) => [
+    uniqueIndex('order_escalations_open_uq')
+      .on(table.orderId, table.type)
+      .where(sql`${table.status} in ('OPEN', 'ACKNOWLEDGED')`),
+    index('order_escalations_status_idx').on(table.status, table.createdAt),
+  ],
+);
+
+export const orderRequestLinks = pgTable(
+  'order_request_links',
+  {
+    linkedAt: timestamp('linked_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => serviceRequests.id, { onDelete: 'restrict' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.orderId, table.requestId] }),
+    uniqueIndex('order_request_links_request_uq').on(table.requestId),
+  ],
+);
+
+export const requestStatusHistory = pgTable(
+  'request_status_history',
+  {
+    actorUserId: uuid('actor_user_id').references(() => users.id, { onDelete: 'restrict' }),
+    fromStatus: requestStatusEnum('from_status'),
+    id: uuid('id').primaryKey().defaultRandom(),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+    occurredAt: timestamp('occurred_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    reason: text('reason'),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => serviceRequests.id, { onDelete: 'restrict' }),
+    requestVersion: integer('request_version').notNull(),
+    toStatus: requestStatusEnum('to_status').notNull(),
+    transitionKey: varchar('transition_key', { length: 100 }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('request_status_history_version_uq').on(table.requestId, table.requestVersion),
+    index('request_status_history_timeline_idx').on(table.requestId, table.occurredAt),
+  ],
+);
+
+export const orderStatusHistory = pgTable(
+  'order_status_history',
+  {
+    actorUserId: uuid('actor_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    fromStatus: orderStatusEnum('from_status').notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+    occurredAt: timestamp('occurred_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    orderVersion: integer('order_version').notNull(),
+    reason: text('reason'),
+    toStatus: orderStatusEnum('to_status').notNull(),
+    transitionKey: varchar('transition_key', { length: 100 }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('order_status_history_version_uq').on(table.orderId, table.orderVersion),
+    index('order_status_history_timeline_idx').on(table.orderId, table.occurredAt),
+  ],
+);
+
+export const auditLogs = pgTable(
+  'audit_logs',
+  {
+    action: varchar('action', { length: 150 }).notNull(),
+    actorUserId: uuid('actor_user_id').references(() => users.id, { onDelete: 'restrict' }),
+    after: jsonb('after').$type<Record<string, unknown>>(),
+    before: jsonb('before').$type<Record<string, unknown>>(),
+    entityId: uuid('entity_id').notNull(),
+    entityType: varchar('entity_type', { length: 80 }).notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    occurredAt: timestamp('occurred_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    reason: text('reason'),
+    requestId: varchar('request_id', { length: 100 }),
+  },
+  (table) => [
+    index('audit_logs_entity_timeline_idx').on(table.entityType, table.entityId, table.occurredAt),
+    index('audit_logs_actor_timeline_idx').on(table.actorUserId, table.occurredAt),
+  ],
+);

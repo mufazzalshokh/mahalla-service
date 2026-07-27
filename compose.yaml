@@ -1,0 +1,53 @@
+name: mahalla-service
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mck}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mck_local_only}
+      POSTGRES_USER: ${POSTGRES_USER:-mck}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  app:
+    profiles: ['application']
+    build:
+      context: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mck}:${POSTGRES_PASSWORD:-mck_local_only}@postgres:5432/${POSTGRES_DB:-mck}
+      HOST: 0.0.0.0
+      LOG_LEVEL: info
+      NODE_ENV: production
+      PORT: 3000
+      SERVICE_NAME: mahalla-service
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    ports:
+      - '127.0.0.1:${PORT:-3000}:3000'
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

@@ -1,0 +1,37 @@
+# Threat model — Telegram resident intake
+
+## Assets and trust boundaries
+
+Protected assets are bot tokens, Telegram identifiers, phone numbers, addresses/coordinates, descriptions, photo file IDs, consent evidence, tickets, and audit history. Telegram is an external platform; grammY is an interface adapter; application planning is untrusted-input validation; PostgreSQL is the consistency boundary.
+
+| Threat                                                              | Control implemented in CP-03                                                                            | Residual/follow-up                                                       |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Replayed or concurrently delivered update creates duplicate request | unique update receipt and submission key; one transaction; same-user advisory lock; concurrency tests   | retain receipt long enough for Telegram retry window; define cleanup job |
+| Forged callback selects unauthorized/nonexistent category           | category ID must match an active database result; FK at insertion                                       | sign callbacks if future payloads contain authorization decisions        |
+| User shares another person's contact                                | contact `user_id` must equal update sender; normalized E.164-style validation                           | secure manual-number verification is deferred                            |
+| User reads another resident's ticket                                | status query filters ticket and authenticated Telegram owner                                            | account-recovery/linking policy remains open                             |
+| Oversized/unsupported upload                                        | only Telegram `photo` events; maximum three; 10 MB application and DB checks                            | malware/object-storage controls required before general uploads          |
+| Bot token disclosure                                                | optional typed secret; example contains no token; redacted logs; no token in errors                     | production secret manager/file permissions required                      |
+| PII duplicated in conversational storage                            | submitted draft cleared; audit excludes raw PII                                                         | update-response receipt retention cleanup is not yet automated           |
+| Injection or malformed coordinates/text                             | typed input, length/range checks, parameterized SQL, DB constraints                                     | Unicode abuse/anti-spam limits added during hardening                    |
+| Suspended user continues intake                                     | inactive-user check inside the transaction                                                              | staff suspension operating procedure required                            |
+| Long-polling replica race                                           | single active consumer policy plus database idempotency                                                 | deployment lock/leader control before scaling                            |
+| Unauthorized staff command                                          | active user lookup and persisted area-scoped permission check on every command                          | staff onboarding/revocation procedure required                           |
+| Operator manipulates source confidence                              | source confidence is derived from the persisted source, never accepted from command input               | source confidence calibration needs pilot evidence                       |
+| Duplicate algorithm destroys resident evidence                      | algorithm only suggests; explicit confirm/dismiss; each request remains linked and auditable            | periodically sample false positive/negative rates                        |
+| Priority override hides original score                              | calculated values remain immutable in meaning; effective override requires permission, reason and audit | management review of override frequency                                  |
+| Concurrent registration creates two orders                          | request version compare-and-set plus link uniqueness in one transaction                                 | retry UX can be improved after pilot                                     |
+| Operator assigns an unsuitable executor                             | active/available profile, scoped executor role and category capability checked in backend               | capability administration UI is deferred                                 |
+| Another executor changes or documents work                          | current-assignee constraint plus area permission on every transition, log and evidence command          | staff Telegram relinking remains manual                                  |
+| Oversized or misleading work evidence                               | photo-only adapter, JPEG/PNG, 10 MB and three-per-phase limits, explicit BEFORE/AFTER                   | object storage, hashing and malware scan needed before contractual use   |
+| Duplicate assignment under concurrency                              | order version compare-and-set and one-active-assignment partial unique index                            | safe reload/retry UX remains basic                                       |
+| Ambiguous or manipulated deadline                                   | explicit ISO timezone, future-deadline checks and UTC persistence                                       | business-calendar SLA policy requires approval                           |
+| Repeated overdue scan creates spam                                  | partial unique constraint and conflict-safe insert create one active escalation and audit               | scheduled scan and acknowledgement UI remain CP-07                       |
+
+## Abuse and privacy defaults
+
+- Unknown messages do not mutate a request and instruct the user to start.
+- Consent is versioned and recorded before contact data is accepted.
+- Logs use update IDs, not message bodies, contact numbers, addresses, or file IDs.
+- Audit records ticket/status/source facts without duplicating resident content.
+- No legal compliance is claimed; draft consent and retention defaults require owner review before real-data pilot use.

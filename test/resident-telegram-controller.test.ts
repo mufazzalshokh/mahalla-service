@@ -1,0 +1,62 @@
+import { describe, expect, it } from 'vitest';
+
+import { HandleResidentUpdateService } from '../src/application/intake/handle-resident-update-service.js';
+import type { ResidentIntakeUnitOfWork } from '../src/application/intake/resident-intake-unit-of-work.js';
+import type { IntakeResponse } from '../src/application/intake/intake-types.js';
+import { ResidentTelegramController } from '../src/interfaces/telegram/resident-telegram-controller.js';
+import { translate } from '../src/interfaces/telegram/translations.js';
+
+class ResponseUnitOfWork implements ResidentIntakeUnitOfWork {
+  constructor(private readonly response: IntakeResponse) {}
+
+  process(): Promise<IntakeResponse> {
+    return Promise.resolve(this.response);
+  }
+}
+
+describe('resident Telegram controller', () => {
+  it('renders localized inline actions without exposing business logic', async () => {
+    const controller = new ResidentTelegramController(
+      new HandleResidentUpdateService(
+        new ResponseUnitOfWork({
+          actions: [{ data: 'consent:accept', labelKey: 'button_accept' }],
+          key: 'privacy_notice',
+          language: 'uz-Cyrl',
+          parameters: { version: 'v1' },
+        }),
+      ),
+    );
+
+    const reply = await controller.handle({
+      input: { kind: 'start' },
+      telegramUserId: 1n,
+      updateId: 1n,
+    });
+    expect(reply.inlineActions).toEqual([{ data: 'consent:accept', label: 'Қабул қиламан' }]);
+    expect(reply.text).toContain('v1');
+  });
+
+  it('renders a Telegram contact keyboard request', async () => {
+    const controller = new ResidentTelegramController(
+      new HandleResidentUpdateService(
+        new ResponseUnitOfWork({
+          key: 'share_contact',
+          language: 'uz-Latn',
+          requestContact: true,
+        }),
+      ),
+    );
+
+    const reply = await controller.handle({
+      input: { kind: 'start' },
+      telegramUserId: 1n,
+      updateId: 1n,
+    });
+    expect(reply.contactLabel).toContain('Telegram');
+    expect(reply.inlineActions).toEqual([]);
+  });
+
+  it('uses a safe key fallback for a data-driven category label', () => {
+    expect(translate('uz-Latn', 'Santexnika')).toBe('Santexnika');
+  });
+});

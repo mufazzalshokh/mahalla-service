@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: mck_test
+          POSTGRES_PASSWORD: mck_test
+          POSTGRES_USER: mck_test
+        options: >-
+          --health-cmd "pg_isready -U mck_test -d mck_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - run: corepack enable
+      - run: corepack prepare pnpm@10.33.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm test:coverage
+        env:
+          TEST_DATABASE_URL: postgresql://mck_test:mck_test@127.0.0.1:5432/mck_test
+      - run: pnpm test:integration
+        env:
+          TEST_DATABASE_URL: postgresql://mck_test:mck_test@127.0.0.1:5432/mck_test
+      - run: pnpm audit --audit-level high

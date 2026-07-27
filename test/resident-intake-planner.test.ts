@@ -1,0 +1,179 @@
+import { describe, expect, it } from 'vitest';
+
+import { planResidentUpdate } from '../src/application/intake/resident-intake-planner.js';
+import type {
+  CategoryOption,
+  IntakePlan,
+  IntakePlanningContext,
+  IntakeSession,
+  ResidentUpdateCommand,
+  ResidentUpdateInput,
+} from '../src/application/intake/intake-types.js';
+
+const categories: readonly CategoryOption[] = [{ id: 'category-1', label: 'Santexnika' }];
+
+function command(updateId: bigint, input: ResidentUpdateInput): ResidentUpdateCommand {
+  return { input, telegramUserId: 1001n, updateId };
+}
+
+function plan(
+  updateId: bigint,
+  input: ResidentUpdateInput,
+  session?: IntakeSession,
+  extra: Partial<IntakePlanningContext> = {},
+): IntakePlan {
+  return planResidentUpdate(command(updateId, input), {
+    categories,
+    ...(session ? { session } : {}),
+    ...extra,
+  });
+}
+
+describe('resident intake planner', () => {
+  it('plans the complete resident flow through exactly one submission intent', () => {
+    let result = plan(1n, { kind: 'start' });
+    expect(result.response.key).toBe('choose_language');
+
+    result = plan(2n, { data: 'lang:uz-Cyrl', kind: 'callback' }, result.session);
+    expect(result).toMatchObject({
+      response: { key: 'privacy_notice', language: 'uz-Cyrl' },
+      session: { step: 'ACCEPT_PRIVACY' },
+    });
+
+    result = plan(3n, { data: 'consent:accept', kind: 'callback' }, result.session);
+    expect(result.acceptPrivacyVersion).toBeTruthy();
+    expect(result.response.requestContact).toBe(true);
+
+    result = plan(
+      4n,
+      { contactTelegramUserId: 1001n, kind: 'contact', phone: '+998 90 123-45-67' },
+      result.session,
+    );
+    expect(result.session.draft.phone).toBe('+998901234567');
+    expect(result.response.categories).toEqual(categories);
+
+    result = plan(5n, { data: 'category:category-1', kind: 'callback' }, result.session);
+    result = plan(6n, { kind: 'text', text: 'Quvurdan suv oqmoqda' }, result.session);
+    result = plan(
+      7n,
+      { kind: 'location', latitude: 41.311081, longitude: 69.240562 },
+      result.session,
+    );
+    result = plan(
+      8n,
+      {
+        kind: 'photo',
+        photo: { fileId: 'file-1', fileSize: 1_024, fileUniqueId: 'unique-1' },
+      },
+      result.session,
+    );
+    expect(result.response).toMatchObject({ key: 'photo_added', parameters: { count: '1' } });
+
+    result = plan(9n, { data: 'photos:done', kind: 'callback' }, result.session);
+    expect(result.response).toMatchObject({
+      key: 'review_request',
+      parameters: { category: 'Santexnika', photoCount: '1' },
+    });
+
+    result = plan(10n, { data: 'submit:confirm', kind: 'callback' }, result.session);
+    expect(result.submit).toBe(true);
+    expect(result.session.step).toBe('SUBMITTED');
+  });
+
+  it('enforces consent, contact ownership, category and text validation', () => {
+    const language = plan(1n, { kind: 'start' }).session;
+    const consent = plan(2n, { data: 'lang:uz-Latn', kind: 'callback' }, language).session;
+    expect(plan(3n, { data: 'consent:decline', kind: 'callback' }, consent).response.key).toBe(
+      'consent_required',
+    );
+    const contact = plan(4n, { data: 'consent:accept', kind: 'callback' }, consent).session;
+    expect(
+      plan(5n, { contactTelegramUserId: 999n, kind: 'contact', phone: '+998901234567' }, contact)
+        .response.key,
+    ).toBe('contact_must_be_own');
+    expect(
+      plan(6n, { contactTelegramUserId: 1001n, kind: 'contact', phone: '12' }, contact).response
+        .key,
+    ).toBe('invalid_contact');
+
+    const category = plan(
+      7n,
+      { contactTelegramUserId: 1001n, kind: 'contact', phone: '+998901234567' },
+      contact,
+    ).session;
+    expect(plan(8n, { data: 'category:forged', kind: 'callback' }, category).response.key).toBe(
+      'invalid_category',
+    );
+    const description = plan(
+      9n,
+      { data: 'category:category-1', kind: 'callback' },
+      category,
+    ).session;
+    expect(plan(10n, { kind: 'text', text: 'short' }, description).response.key).toBe(
+      'invalid_description',
+    );
+  });
+
+  it('validates addresses and photo limits', () => {
+    const address: IntakeSession = {
+      draft: {
+        categoryId: 'category-1',
+        description: 'Long enough description',
+        phone: '+998901234567',
+        photos: [],
+      },
+      language: 'uz-Latn',
+      step: 'ENTER_ADDRESS',
+      version: 5,
+    };
+    expect(plan(1n, { kind: 'text', text: 'x' }, address).response.key).toBe('invalid_address');
+    expect(
+      plan(2n, { kind: 'location', latitude: 100, longitude: 69.2 }, address).response.key,
+    ).toBe('invalid_address');
+    const photoStep = plan(2n, { kind: 'text', text: '12 Main Street' }, address).session;
+    expect(
+      plan(3n, { kind: 'photo', photo: { fileId: 'x', fileSize: 0, fileUniqueId: 'x' } }, photoStep)
+        .response.key,
+    ).toBe('photo_invalid');
+    const full: IntakeSession = {
+      ...photoStep,
+      draft: {
+        ...photoStep.draft,
+        photos: [1, 2, 3].map((number) => ({
+          fileId: `f${number}`,
+          fileSize: 1,
+          fileUniqueId: `u${number}`,
+        })),
+      },
+    };
+    expect(
+      plan(4n, { kind: 'photo', photo: { fileId: 'f4', fileSize: 1, fileUniqueId: 'u4' } }, full)
+        .response.key,
+    ).toBe('photo_limit');
+  });
+
+  it('returns only an owner-provided ticket view and requires start otherwise', () => {
+    expect(plan(1n, { kind: 'text', text: 'hello' }).response.key).toBe('start_required');
+    expect(plan(2n, { kind: 'status', ticketNumber: 'MCK-1' }).response.key).toBe(
+      'ticket_not_found',
+    );
+    expect(
+      plan(3n, { kind: 'status', ticketNumber: 'MCK-1' }, undefined, {
+        ticket: { status: 'RECEIVED', ticketNumber: 'MCK-1' },
+      }).response,
+    ).toMatchObject({ key: 'status_result', parameters: { status: 'RECEIVED' } });
+  });
+
+  it('supports restart from any existing step', () => {
+    const session: IntakeSession = {
+      draft: { photos: [] },
+      language: 'uz-Cyrl',
+      step: 'REVIEW',
+      version: 7,
+    };
+    expect(plan(1n, { data: 'intake:restart', kind: 'callback' }, session)).toMatchObject({
+      response: { key: 'choose_language' },
+      session: { step: 'CHOOSE_LANGUAGE' },
+    });
+  });
+});
