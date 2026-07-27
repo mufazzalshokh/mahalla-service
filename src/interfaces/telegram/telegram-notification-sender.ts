@@ -6,20 +6,25 @@ import {
   type NotificationSender,
 } from '../../application/notifications/notification-repository.js';
 import type { NotificationTemplateKey } from '../../domain/notifications/notification-policy.js';
+import { formatTashkentDateTime } from '../../domain/shared/tashkent-date-time.js';
 
 type Template = (notification: ClaimedNotification) => string;
 
+function dueAt(value: string | undefined): string | undefined {
+  return value ? formatTashkentDateTime(value) : undefined;
+}
+
 const latinTemplates: Readonly<Record<NotificationTemplateKey, Template>> = {
   'executor.assignment_created': ({ payload }) =>
-    `${payload.reference}: sizga yangi topshiriq biriktirildi.${payload.dueAt ? ` Muddat: ${payload.dueAt}.` : ''}`,
+    `${payload.reference}: sizga yangi topshiriq biriktirildi.${payload.dueAt ? ` Muddat: ${dueAt(payload.dueAt)}.` : ''}`,
   'executor.deadline_reminder': ({ payload }) =>
-    `${payload.reference}: topshiriq muddati yaqinlashmoqda.${payload.dueAt ? ` Muddat: ${payload.dueAt}.` : ''}`,
+    `${payload.reference}: topshiriq muddati yaqinlashmoqda.${payload.dueAt ? ` Muddat: ${dueAt(payload.dueAt)}.` : ''}`,
   'executor.rework_required': ({ payload }) =>
-    `${payload.reference}: qayta ishlash talab qilindi.${payload.dueAt ? ` Muddat: ${payload.dueAt}.` : ''}`,
+    `${payload.reference}: qayta ishlash talab qilindi.${payload.dueAt ? ` Muddat: ${dueAt(payload.dueAt)}.` : ''}`,
   'operator.assignment_rejected': ({ payload }) =>
     `${payload.reference}: ijrochi topshiriqni rad etdi. Yangi ijrochi belgilang.`,
   'operator.complaint_created': ({ payload }) =>
-    `${payload.reference}: yangi shikoyat. Ko‘rib chiqish muddati: ${payload.dueAt ?? 'belgilanmagan'}.`,
+    `${payload.reference}: yangi shikoyat. Ko‘rib chiqish muddati: ${dueAt(payload.dueAt) ?? 'belgilanmagan'}.`,
   'operator.complaint_review_overdue': ({ payload }) =>
     `${payload.reference}: shikoyatni ko‘rib chiqish muddati o‘tgan.`,
   'operator.complaint_review_reminder': ({ payload }) =>

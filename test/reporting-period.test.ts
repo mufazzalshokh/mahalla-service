@@ -12,14 +12,14 @@ describe('reporting period policy', () => {
     const period = createReportingPeriod('WEEK', asOf);
     expect(period.startInclusive.toISOString()).toBe('2026-07-26T19:00:00.000Z');
     expect(period.endExclusive).toEqual(asOf);
-    expect(period.label).toBe('WEEK 2026-07-27 through 2026-07-27');
+    expect(period.label).toBe('Hafta: 27.07.2026–27.07.2026');
     expect(period.timezone).toBe('Asia/Tashkent');
   });
 
   it('starts a month at local midnight even when that is the prior UTC date', () => {
     const period = createReportingPeriod('MONTH', new Date('2026-08-15T12:00:00Z'));
     expect(period.startInclusive.toISOString()).toBe('2026-07-31T19:00:00.000Z');
-    expect(period.label).toBe('MONTH 2026-08-01 through 2026-08-15');
+    expect(period.label).toBe('Oy: 01.08.2026–15.08.2026');
   });
 
   it('rejects invalid dates and handles safe KPI arithmetic', () => {

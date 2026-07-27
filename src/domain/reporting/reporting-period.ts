@@ -1,3 +1,5 @@
+import { formatTashkentDate } from '../shared/tashkent-date-time.js';
+
 export const reportPeriodKinds = ['WEEK', 'MONTH'] as const;
 export type ReportPeriodKind = (typeof reportPeriodKinds)[number];
 
@@ -11,15 +13,6 @@ export interface ReportingPeriod {
 }
 
 const tashkentOffsetMilliseconds = 5 * 60 * 60 * 1_000;
-
-function localDate(value: Date): string {
-  const shifted = new Date(value.getTime() + tashkentOffsetMilliseconds);
-  return [
-    shifted.getUTCFullYear(),
-    String(shifted.getUTCMonth() + 1).padStart(2, '0'),
-    String(shifted.getUTCDate()).padStart(2, '0'),
-  ].join('-');
-}
 
 export function createReportingPeriod(kind: ReportPeriodKind, asOf: Date): ReportingPeriod {
   if (Number.isNaN(asOf.valueOf())) throw new RangeError('asOf must be a valid date');
@@ -35,7 +28,7 @@ export function createReportingPeriod(kind: ReportPeriodKind, asOf: Date): Repor
     asOf: new Date(asOf),
     endExclusive: new Date(asOf),
     kind,
-    label: `${kind} ${localDate(startInclusive)} through ${localDate(asOf)}`,
+    label: `${kind === 'WEEK' ? 'Hafta' : 'Oy'}: ${formatTashkentDate(startInclusive)}–${formatTashkentDate(asOf)}`,
     startInclusive,
     timezone: 'Asia/Tashkent',
   });

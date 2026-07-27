@@ -106,14 +106,16 @@ describe('staff reporting and PDCA operations', () => {
       'No category activity',
     );
     await expect(service.execute(1n, { kind: 'report-export', period: 'MONTH' })).resolves.toEqual({
-      caption: 'MONTH operational report — Asia/Tashkent',
+      caption: 'Oylik operatsion hisobot',
       content: 'header\r\n',
       fileName: 'report.csv',
       kind: 'document',
     });
-    await expect(service.execute(1n, { kind: 'pdca-list' })).resolves.toContain('OVERDUE');
+    await expect(service.execute(1n, { kind: 'pdca-list' })).resolves.toContain('MUDDAT O‘TGAN');
     await expect(service.execute(1n, { kind: 'pdca-list' })).resolves.toContain('Faol PDCA');
-    await expect(service.execute(1n, { kind: 'pdca-list' })).resolves.not.toContain('OVERDUE');
+    await expect(service.execute(1n, { kind: 'pdca-list' })).resolves.not.toContain(
+      'MUDDAT O‘TGAN',
+    );
     await expect(
       service.execute(1n, {
         areaCode: 'DEMO',

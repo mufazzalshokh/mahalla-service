@@ -5,6 +5,7 @@ import {
   type ReportPeriodKind,
 } from '../../domain/reporting/reporting-period.js';
 import type { OperationalReport } from '../../domain/reporting/operational-report.js';
+import { formatTashkentDate } from '../../domain/shared/tashkent-date-time.js';
 import { operationalReportCsv } from './report-format.js';
 import type { ReportingRepository } from './reporting-repository.js';
 
@@ -38,7 +39,7 @@ export class ReportingService {
     const report = await this.repository.generate(period, scopes(principal, 'report.export'));
     return {
       content: operationalReportCsv(report),
-      fileName: `mck-${kind.toLowerCase()}-${period.startInclusive.toISOString().slice(0, 10)}.csv`,
+      fileName: `mck-${kind.toLowerCase()}-${formatTashkentDate(period.startInclusive)}.csv`,
     };
   }
 }

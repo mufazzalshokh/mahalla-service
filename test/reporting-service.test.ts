@@ -78,7 +78,7 @@ describe('ReportingService', () => {
       ['area-1'],
     );
     const exported = await service.exportCsv('MONTH', principal('report.export'));
-    expect(exported.fileName).toBe('mck-month-2026-06-30.csv');
+    expect(exported.fileName).toBe('mck-month-01.07.2026.csv');
     expect(exported.content).toContain('category:=DANGER');
     expect(exported.content).toMatch(/\r\n$/u);
     expect(formatOperationalReport(report)).toContain('SLA — on time 1');

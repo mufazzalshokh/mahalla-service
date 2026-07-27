@@ -20,6 +20,7 @@ import { formatOperationalReport } from '../reporting/report-format.js';
 import type { ReportPeriodKind } from '../../domain/reporting/reporting-period.js';
 import type { PdcaActionInput, PdcaStage } from '../../domain/pdca/pdca-policy.js';
 import type { PdcaService } from '../pdca/pdca-service.js';
+import { formatTashkentDateTime } from '../../domain/shared/tashkent-date-time.js';
 
 export interface StaffDocumentResult {
   readonly caption: string;
@@ -248,7 +249,7 @@ export class StaffOperationsService implements StaffOperations {
           command.dueAt,
           principal,
         );
-        return `${order.orderNumber}: ijrochi tayinlandi, muddat ${command.dueAt.toISOString()}.`;
+        return `${order.orderNumber}: ijrochi tayinlandi, muddat ${formatTashkentDateTime(command.dueAt)}.`;
       }
       case 'my-orders': {
         const orders = await this.dependencies.execution.listMine(principal);
@@ -257,7 +258,7 @@ export class StaffOperationsService implements StaffOperations {
           : orders
               .map(
                 ({ dueAt, orderNumber, status }) =>
-                  `${orderNumber} — ${status}${dueAt ? ` — ${dueAt.toISOString()}` : ''}`,
+                  `${orderNumber} — ${status}${dueAt ? ` — ${formatTashkentDateTime(dueAt)}` : ''}`,
               )
               .join('\n');
       }
@@ -323,7 +324,7 @@ export class StaffOperationsService implements StaffOperations {
           : escalations
               .map(
                 ({ dueAt, orderNumber, status }) =>
-                  `${orderNumber} — ${dueAt.toISOString()} (${status})`,
+                  `${orderNumber} — ${formatTashkentDateTime(dueAt)} (${status})`,
               )
               .join('\n');
       }
@@ -364,7 +365,7 @@ export class StaffOperationsService implements StaffOperations {
       case 'report-export': {
         const exported = await this.dependencies.reporting.exportCsv(command.period, principal);
         return {
-          caption: `${command.period} operational report — Asia/Tashkent`,
+          caption: `${command.period === 'WEEK' ? 'Haftalik' : 'Oylik'} operatsion hisobot`,
           content: exported.content,
           fileName: exported.fileName,
           kind: 'document',
@@ -377,7 +378,7 @@ export class StaffOperationsService implements StaffOperations {
           : actions
               .map(
                 ({ code, dueAt, overdue, stage, title }) =>
-                  `${code} — ${stage} — ${dueAt.toISOString()}${overdue ? ' — OVERDUE' : ''} — ${title}`,
+                  `${code} — ${stage} — ${formatTashkentDateTime(dueAt)}${overdue ? ' — MUDDAT O‘TGAN' : ''} — ${title}`,
               )
               .join('\n');
       }
@@ -387,7 +388,7 @@ export class StaffOperationsService implements StaffOperations {
           command.input,
           principal,
         );
-        return `${action.code}: PDCA PLAN yaratildi, muddat ${action.dueAt.toISOString()}.`;
+        return `${action.code}: PDCA PLAN yaratildi, muddat ${formatTashkentDateTime(action.dueAt)}.`;
       }
       case 'pdca-transition': {
         const action = await this.dependencies.pdca.transition(
@@ -450,7 +451,7 @@ export class StaffOperationsService implements StaffOperations {
           : complaints
               .map(
                 ({ code, order, reviewDueAt, withinWarranty }) =>
-                  `${code} — ${order.orderNumber} — ${reviewDueAt.toISOString()} — ${withinWarranty ? 'kafolatda' : 'kafolatdan tashqari'}`,
+                  `${code} — ${order.orderNumber} — ${formatTashkentDateTime(reviewDueAt)} — ${withinWarranty ? 'kafolatda' : 'kafolatdan tashqari'}`,
               )
               .join('\n');
       }

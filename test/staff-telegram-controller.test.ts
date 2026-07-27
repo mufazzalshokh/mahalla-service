@@ -43,18 +43,25 @@ describe('staff Telegram controller', () => {
     expect(execute).toHaveBeenCalledTimes(4);
   });
 
-  it('parses assignment with an explicit timezone and rejects ambiguous deadlines', async () => {
+  it('parses simple Tashkent and legacy ISO deadlines and rejects ambiguous values', async () => {
     const execute = vi.fn().mockResolvedValue('ok');
     const controller = new StaffTelegramController({ execute });
     await controller.handle(2n, '/assign ord-1 ex-1 2026-07-28T18:00:00+05:00');
-    expect(execute).toHaveBeenCalledWith(2n, {
+    await controller.handle(2n, '/assign ord-1 ex-1 28.07.2026 18:00');
+    expect(execute).toHaveBeenNthCalledWith(1, 2n, {
+      dueAt: new Date('2026-07-28T13:00:00.000Z'),
+      executorCode: 'EX-1',
+      kind: 'assign',
+      orderNumber: 'ORD-1',
+    });
+    expect(execute).toHaveBeenNthCalledWith(2, 2n, {
       dueAt: new Date('2026-07-28T13:00:00.000Z'),
       executorCode: 'EX-1',
       kind: 'assign',
       orderNumber: 'ORD-1',
     });
     await expect(controller.handle(2n, '/assign ORD-1 EX-1 2026-07-28T18:00:00')).rejects.toThrow(
-      /timezone/i,
+      /DD\.MM\.YYYY/u,
     );
   });
 
@@ -157,7 +164,7 @@ describe('staff Telegram controller', () => {
     await controller.handle(2n, '/pdca');
     await controller.handle(
       2n,
-      '/pdca new demo 2026-08-10T18:00:00+05:00 Stop leak | Pipe leaks | Replace pipe | No leak',
+      '/pdca new demo 10.08.2026 18:00 Stop leak | Pipe leaks | Replace pipe | No leak',
     );
     await controller.handle(2n, '/pdca move pdc-2026-1 do Work started');
     expect(execute).toHaveBeenNthCalledWith(1, 2n, { kind: 'report', period: 'WEEK' });
@@ -187,7 +194,7 @@ describe('staff Telegram controller', () => {
     await expect(controller.handle(2n, '/report year')).rejects.toThrow(/week/i);
     await expect(controller.handle(2n, '/pdca move X UNKNOWN reason')).rejects.toThrow(/PLAN/u);
     await expect(controller.handle(2n, '/pdca new DEMO bad a | b | c | d')).rejects.toThrow(
-      /timezone/i,
+      /DD\.MM\.YYYY/u,
     );
     await expect(controller.handle(2n, '/pdca unknown')).rejects.toThrow(/list/u);
   });

@@ -23,6 +23,20 @@ describe('Telegram notification adapter', () => {
     expect(renderTelegramNotification({ ...notification, language: 'uz-Cyrl' })).toContain('ҳолат');
   });
 
+  it('renders notification deadlines in Tashkent local time', () => {
+    expect(
+      renderTelegramNotification({
+        ...notification,
+        audience: 'STAFF',
+        payload: {
+          dueAt: '2026-07-29T20:20:04.500Z',
+          reference: 'CMP-1',
+          templateKey: 'operator.complaint_created',
+        },
+      }),
+    ).toContain('30.07.2026 01:20');
+  });
+
   it('renders every approved template in both scripts with and without optional fields', () => {
     for (const templateKey of notificationTemplateKeys) {
       for (const language of ['uz-Latn', 'uz-Cyrl'] as const) {

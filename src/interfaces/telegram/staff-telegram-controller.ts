@@ -8,6 +8,7 @@ import type {
 import type { InspectionItemInput } from '../../domain/quality/quality-policy.js';
 import { pdcaStages, type PdcaStage } from '../../domain/pdca/pdca-policy.js';
 import type { ReportPeriodKind } from '../../domain/reporting/reporting-period.js';
+import { parseTashkentDateTime } from '../../domain/shared/tashkent-date-time.js';
 
 const help = [
   '/queue',
@@ -20,7 +21,7 @@ const help = [
   '/register TICKET',
   '/reject TICKET sabab',
   '/executors ORDER',
-  '/assign ORDER EXECUTOR_CODE ISO_DEADLINE',
+  '/assign ORDER EXECUTOR_CODE DD.MM.YYYY HH:mm',
   '/mine',
   '/accept ORDER',
   '/decline ORDER sabab',
@@ -37,7 +38,7 @@ const help = [
   '/report week|month',
   '/reportcsv week|month',
   '/pdca',
-  '/pdca new AREA ISO_DEADLINE title | problem | action | expected outcome',
+  '/pdca new AREA DD.MM.YYYY HH:mm title | problem | action | expected outcome',
   '/pdca move PDC_CODE DO|CHECK|ACT|COMPLETED|PLAN|CANCELLED reason',
   '/checklist ORDER',
   '/inspect ORDER CODE=PASS,CODE=FAIL qisqa xulosa',
@@ -61,19 +62,28 @@ function numeric(value: string | undefined, usage: string): number {
   return parsed;
 }
 
-function deadline(value: string | undefined): Date {
-  const raw = required(value, '/assign ORDER EXECUTOR_CODE 2026-07-28T18:00:00+05:00');
+function deadline(
+  values: readonly string[],
+  start: number,
+  usage: string,
+): { readonly dueAt: Date; readonly next: number } {
+  const raw = required(values[start], usage);
+  if (/^\d{2}\.\d{2}\.\d{4}$/u.test(raw)) {
+    const time = required(values[start + 1], usage);
+    try {
+      return { dueAt: parseTashkentDateTime(raw, time), next: start + 2 };
+    } catch {
+      throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
+    }
+  }
   if (!/(?:Z|[+-]\d{2}:\d{2})$/u.test(raw)) {
-    throw new DomainRuleError(
-      'COMMAND_INVALID',
-      'Muddat UTC yoki aniq timezone bilan bo‘lishi kerak',
-    );
+    throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
   }
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.valueOf())) {
-    throw new DomainRuleError('COMMAND_INVALID', 'Muddat ISO-8601 formatida bo‘lishi kerak');
+    throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
   }
-  return parsed;
+  return { dueAt: parsed, next: start + 1 };
 }
 
 function reportPeriod(value: string | undefined): ReportPeriodKind {
@@ -181,13 +191,15 @@ function parse(text: string): StaffOperationCommand | 'help' {
       };
     case '/executors':
       return { kind: 'executors', orderNumber: ticket() };
-    case '/assign':
+    case '/assign': {
+      const usage = '/assign ORDER EXECUTOR_CODE DD.MM.YYYY HH:mm';
       return {
-        dueAt: deadline(parts[2]),
-        executorCode: required(parts[1], '/assign ORDER EXECUTOR_CODE ISO_DEADLINE').toUpperCase(),
+        dueAt: deadline(parts, 2, usage).dueAt,
+        executorCode: required(parts[1], usage).toUpperCase(),
         kind: 'assign',
         orderNumber: ticket(),
       };
+    }
     case '/mine':
       return { kind: 'my-orders' };
     case '/accept':
@@ -238,9 +250,10 @@ function parse(text: string): StaffOperationCommand | 'help' {
       const operation = parts[0]?.toLowerCase();
       if (!operation || operation === 'list') return { kind: 'pdca-list' };
       if (operation === 'new') {
-        const usage = '/pdca new AREA ISO_DEADLINE title | problem | action | expected outcome';
+        const usage = '/pdca new AREA DD.MM.YYYY HH:mm title | problem | action | expected outcome';
+        const parsedDeadline = deadline(parts, 2, usage);
         const fields = parts
-          .slice(3)
+          .slice(parsedDeadline.next)
           .join(' ')
           .split('|')
           .map((value) => value.trim());
@@ -251,7 +264,7 @@ function parse(text: string): StaffOperationCommand | 'help' {
         return {
           areaCode: required(parts[1], usage).toUpperCase(),
           input: {
-            dueAt: deadline(parts[2]),
+            dueAt: parsedDeadline.dueAt,
             expectedOutcome: required(expectedOutcome, usage),
             plannedAction: required(plannedAction, usage),
             problemStatement: required(problemStatement, usage),

@@ -7,6 +7,7 @@ import type {
 } from '../../application/intake/intake-types.js';
 import type { RespondToInformationService } from '../../application/requests/respond-to-information-service.js';
 import type { ResidentQualityService } from '../../application/quality/quality-service.js';
+import { formatTashkentDateTime } from '../../domain/shared/tashkent-date-time.js';
 import { ResidentTelegramController, type TelegramReply } from './resident-telegram-controller.js';
 import { translate } from './translations.js';
 
@@ -133,7 +134,7 @@ export function createResidentBot(options: ResidentBotOptions): Bot {
       reason,
     );
     await ctx.reply(
-      `${complaint.code}: shikoyat qabul qilindi. Ko‘rib chiqish muddati ${complaint.reviewDueAt.toISOString()}.`,
+      `${complaint.code}: shikoyat qabul qilindi. Ko‘rib chiqish muddati ${formatTashkentDateTime(complaint.reviewDueAt)}.`,
     );
   });
   bot.command('warranty', async (ctx) => {
@@ -145,7 +146,7 @@ export function createResidentBot(options: ResidentBotOptions): Bot {
     }
     const warranty = await options.quality.warranty(BigInt(ctx.from.id), orderNumber);
     await ctx.reply(
-      `${orderNumber}: kafolat ${warranty.endsAt.toISOString()} gacha (${warranty.warrantyDays} kun).`,
+      `${orderNumber}: kafolat ${formatTashkentDateTime(warranty.endsAt)} gacha (${warranty.warrantyDays} kun).`,
     );
   });
   bot.on('callback_query:data', (ctx) =>
