@@ -3,8 +3,8 @@
 Telegram-first order portfolio and service-management platform for a Mahalla
 Service Company (MCK).
 
-The repository is delivered checkpoint by checkpoint. CP-00 through CP-07 are approved; CP-08
-operational KPI reporting, CSV export, and auditable PDCA are implemented and awaiting approval.
+The repository is delivered checkpoint by checkpoint. CP-00 through CP-08 are approved. CP-08.1
+adds bilingual Uzbek/Russian and button-driven Telegram UX before CP-09 begins.
 
 ## Prerequisites
 

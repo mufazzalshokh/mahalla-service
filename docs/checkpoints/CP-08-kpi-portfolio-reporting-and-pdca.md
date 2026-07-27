@@ -1,5 +1,5 @@
 CHECKPOINT: CP-08 — KPI, portfolio reporting, and PDCA
-STATUS: PASS
+STATUS: APPROVED — 2026-07-28
 
 ## 1. Objective
 
@@ -149,8 +149,10 @@ actions without adding BI, warehouse, AI, or scheduler infrastructure.
   cause classification.
 - CSV is the long-form report; there is no chart UI, scheduled email, immutable export registry, or
   third-party dashboard.
-- Live Telegram document delivery was not smoke-tested because real bot tokens were neither needed
-  nor exposed.
+- Live Telegram document delivery was smoke-tested after implementation without exposing bot
+  tokens. The test covered resident intake, validation/triage/registration, assignment, execution,
+  evidence, rework, inspection, acceptance, warranty, feedback, complaint resolution, 13/13 outbox
+  deliveries, weekly report text, CSV delivery, and PDCA creation.
 
 ## 11. Risks and technical debt
 
@@ -183,6 +185,10 @@ ownership and exact revenue, expense, payment, margin, and allocation rules befo
 Keep payment/storage providers behind interfaces and feature flags, and preserve the sell-first
 sequence rather than buying integrations before a customer funds or requires them.
 
-## 14. Waiting for: APPROVE CP-08
+## 14. Approval
 
-Stop here. Do not begin CP-09 without the exact approval phrase `APPROVE CP-08`.
+Stakeholder approval received on 2026-07-28 with the exact phrase `APPROVE CP-08`.
+
+Before CP-09, the stakeholder requested CP-08.1: make both bots Uzbek/Russian and replace routine
+staff command typing with simple Telegram buttons and guided interactions. Text commands remain a
+fallback for support and power users.

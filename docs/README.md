@@ -5,8 +5,8 @@ This directory is the source of truth for the incremental Mahalla Service Compan
 
 ## Current checkpoint
 
-CP-00 through CP-07 are approved. CP-08 operational KPI reporting and PDCA is implemented and
-awaiting checkpoint approval.
+CP-00 through CP-08 are approved. CP-08.1 bilingual, button-driven Telegram UX is in progress before
+CP-09 begins.
 
 ## Documents
 
