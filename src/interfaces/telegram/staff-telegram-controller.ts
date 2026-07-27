@@ -27,6 +27,10 @@ const help = [
   '/complete ORDER yakuniy hisobot',
   'Foto izohi: /evidence ORDER BEFORE|AFTER izoh',
   '/overdue',
+  '/ackoverdue ORDER',
+  '/resolveoverdue ORDER',
+  '/failednotifications',
+  '/retrynotification NTF_CODE',
   '/checklist ORDER',
   '/inspect ORDER CODE=PASS,CODE=FAIL qisqa xulosa',
   '/approve ORDER',
@@ -194,6 +198,14 @@ function parse(text: string): StaffOperationCommand | 'help' {
       };
     case '/overdue':
       return { kind: 'overdue' };
+    case '/ackoverdue':
+      return { kind: 'acknowledge-overdue', orderNumber: ticket() };
+    case '/resolveoverdue':
+      return { kind: 'resolve-overdue', orderNumber: ticket() };
+    case '/failednotifications':
+      return { kind: 'failed-notifications' };
+    case '/retrynotification':
+      return { code: ticket(), kind: 'retry-notification' };
     case '/checklist':
       return { kind: 'quality-checklist', orderNumber: ticket() };
     case '/inspect':

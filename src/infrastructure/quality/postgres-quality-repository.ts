@@ -28,6 +28,10 @@ import {
   qualityInspections,
   serviceRequests,
 } from '../database/schema.js';
+import {
+  enqueueNotificationIntent,
+  staffRecipientsForArea,
+} from '../notifications/notification-enqueuer.js';
 
 function isUniqueViolation(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
@@ -275,6 +279,20 @@ export class PostgresQualityRepository implements QualityRepository {
           entityId: created.id,
           entityType: 'quality_complaint',
         });
+        await enqueueNotificationIntent(
+          tx,
+          {
+            deduplicationKey: `complaint:${created.id}:created`,
+            payload: {
+              dueAt: reviewDueAt.toISOString(),
+              reference: code,
+              status: 'OPEN',
+              templateKey: 'operator.complaint_created',
+            },
+            serviceAreaId: order.serviceAreaId,
+          },
+          await staffRecipientsForArea(tx, order.serviceAreaId),
+        );
         return { ...created, order };
       });
     } catch (error) {
@@ -336,6 +354,23 @@ export class PostgresQualityRepository implements QualityRepository {
         entityType: 'quality_complaint',
         reason,
       });
+      await enqueueNotificationIntent(
+        tx,
+        {
+          deduplicationKey: `complaint:${complaint.id}:${outcome}`,
+          payload: {
+            reference: complaint.code,
+            status: outcome,
+            templateKey: 'resident.complaint_decided',
+          },
+          serviceAreaId: complaint.order.serviceAreaId,
+        },
+        await tx
+          .selectDistinct({ userId: qualityComplaints.requesterUserId })
+          .from(qualityComplaints)
+          .where(eq(qualityComplaints.id, complaint.id))
+          .then((rows) => rows.map(({ userId }) => ({ audience: 'RESIDENT' as const, userId }))),
+      );
     });
   }
 

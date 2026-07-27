@@ -57,4 +57,7 @@ sequenceDiagram
 
 ## Deferred model elements
 
-Resident/staff profiles, duplicate matches, priority assessments, assignment history, work evidence, inspections, acceptances, warranties, feedback, complaints, and rework decisions now exist through CP-06. Notifications/outbox, finance, and KPI projections remain assigned to later checkpoints.
+Resident/staff profiles, duplicate matches, priority assessments, assignment history, work evidence,
+inspections, acceptances, warranties, feedback, complaints, rework decisions, notification intents,
+delivery attempts, and automated alerts now exist through CP-07. Finance and KPI projections remain
+assigned to later checkpoints.

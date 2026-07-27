@@ -14,6 +14,7 @@ import {
   requestStatusHistory,
   serviceRequests,
 } from '../database/schema.js';
+import { enqueueNotificationIntent } from '../notifications/notification-enqueuer.js';
 
 function metadataFrom(data: PersistRequestTransition['data']): Record<string, unknown> {
   return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
@@ -120,6 +121,22 @@ export class PostgresRequestRepository implements RequestRepository {
         ...(reason ? { reason } : {}),
         ...(command.requestId ? { requestId: command.requestId } : {}),
       });
+      const effect = command.plan.definition.notification;
+      if (effect !== 'none') {
+        await enqueueNotificationIntent(
+          tx,
+          {
+            deduplicationKey: `request:${command.request.id}:v${updated.version}:${effect}`,
+            payload: {
+              reference: updated.ticketNumber,
+              status: updated.status,
+              templateKey: effect,
+            },
+            serviceAreaId: command.request.serviceAreaId,
+          },
+          [{ audience: 'RESIDENT', userId: command.request.requesterUserId }],
+        );
+      }
       return { ...updated, serviceAreaId: command.request.serviceAreaId };
     });
   }

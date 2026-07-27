@@ -138,4 +138,39 @@ export class ExecutionService {
     if (scopes.length === 0) throw new AuthorizationError('order.escalation.review');
     return this.repository.scanOverdue(scopes, this.now(), principal);
   }
+
+  async updateDeadlineEscalation(
+    orderNumber: string,
+    status: 'ACKNOWLEDGED' | 'RESOLVED',
+    principal: Principal,
+  ): Promise<EscalationRecord> {
+    const order = await requireOrder(this.repository, orderNumber);
+    if (!hasPermission(principal, 'order.escalation.manage', order.serviceAreaId)) {
+      throw new AuthorizationError('order.escalation.manage');
+    }
+    if (
+      status === 'RESOLVED' &&
+      ['ASSIGNED', 'IN_PROGRESS', 'BLOCKED', 'REWORK_REQUIRED'].includes(order.status) &&
+      order.dueAt !== null &&
+      order.dueAt <= this.now()
+    ) {
+      throw new DomainRuleError(
+        'ESCALATION_CAUSE_ACTIVE',
+        'An overdue escalation cannot be resolved while the order remains overdue',
+      );
+    }
+    const escalation = await this.repository.updateDeadlineEscalation(
+      order,
+      status,
+      principal,
+      this.now(),
+    );
+    if (!escalation) {
+      throw new DomainRuleError(
+        'ACTIVE_ESCALATION_NOT_FOUND',
+        'No active deadline escalation exists for this order',
+      );
+    }
+    return escalation;
+  }
 }

@@ -1,5 +1,7 @@
 import 'dotenv/config';
 
+import { hostname } from 'node:os';
+
 import { HealthService } from './application/health/health-service.js';
 import { HandleResidentUpdateService } from './application/intake/handle-resident-update-service.js';
 import { RespondToInformationService } from './application/requests/respond-to-information-service.js';
@@ -7,6 +9,8 @@ import { ExecutionService } from './application/execution/execution-service.js';
 import { TransitionOrderService } from './application/orders/transition-order-service.js';
 import { TransitionRequestService } from './application/requests/transition-request-service.js';
 import { QualityService, ResidentQualityService } from './application/quality/quality-service.js';
+import { NotificationService } from './application/notifications/notification-service.js';
+import { OperationalAutomation } from './application/automation/operational-automation.js';
 import {
   AssessPriorityService,
   DecideDuplicateService,
@@ -27,9 +31,12 @@ import { PostgresOrderRepository } from './infrastructure/orders/postgres-order-
 import { PostgresRequestRepository } from './infrastructure/requests/postgres-request-repository.js';
 import { PostgresQualityRepository } from './infrastructure/quality/postgres-quality-repository.js';
 import { PostgresTriageRepository } from './infrastructure/triage/postgres-triage-repository.js';
+import { PostgresNotificationRepository } from './infrastructure/notifications/postgres-notification-repository.js';
+import { PostgresAutomationRepository } from './infrastructure/automation/postgres-automation-repository.js';
 import { buildApp } from './interfaces/http/build-app.js';
 import { createResidentBot } from './interfaces/telegram/resident-bot.js';
 import { createStaffBot } from './interfaces/telegram/staff-bot.js';
+import { TelegramNotificationSender } from './interfaces/telegram/telegram-notification-sender.js';
 
 async function start(): Promise<void> {
   const environment = loadEnvironment(process.env);
@@ -43,9 +50,19 @@ async function start(): Promise<void> {
   let applicationDatabase: DatabaseClient | undefined;
   let stopResidentBot: (() => Promise<void>) | undefined;
   let stopStaffBot: (() => Promise<void>) | undefined;
+  let stopAutomation: (() => Promise<void>) | undefined;
+  let notificationService: NotificationService | undefined;
 
-  if (environment.RESIDENT_BOT_ENABLED || environment.STAFF_BOT_ENABLED) {
+  if (
+    environment.RESIDENT_BOT_ENABLED ||
+    environment.STAFF_BOT_ENABLED ||
+    environment.AUTOMATION_ENABLED
+  ) {
     applicationDatabase = createDatabaseClient(environment.DATABASE_URL, 5);
+    notificationService = new NotificationService(
+      new PostgresNotificationRepository(applicationDatabase.db),
+      new TelegramNotificationSender(environment.RESIDENT_BOT_TOKEN, environment.STAFF_BOT_TOKEN),
+    );
   }
 
   if (environment.RESIDENT_BOT_ENABLED && environment.RESIDENT_BOT_TOKEN && applicationDatabase) {
@@ -82,7 +99,12 @@ async function start(): Promise<void> {
     });
   }
 
-  if (environment.STAFF_BOT_ENABLED && environment.STAFF_BOT_TOKEN && applicationDatabase) {
+  if (
+    environment.STAFF_BOT_ENABLED &&
+    environment.STAFF_BOT_TOKEN &&
+    applicationDatabase &&
+    notificationService
+  ) {
     const triageRepository = new PostgresTriageRepository(applicationDatabase.db);
     const executionRepository = new PostgresExecutionRepository(applicationDatabase.db);
     const transitionOrder = new TransitionOrderService(
@@ -102,6 +124,7 @@ async function start(): Promise<void> {
         decideDuplicate: new DecideDuplicateService(triageRepository),
         execution: new ExecutionService(executionRepository, transitionOrder),
         listQueue: new ListValidationQueueService(triageRepository),
+        notifications: notificationService,
         overridePriority: new OverridePriorityService(triageRepository),
         principals: new PostgresPrincipalProvider(applicationDatabase.db),
         quality,
@@ -117,7 +140,38 @@ async function start(): Promise<void> {
     void staffBot.start({ onStart: () => app.log.info('Staff bot long polling started') });
   }
 
+  if (environment.AUTOMATION_ENABLED && applicationDatabase && notificationService) {
+    const automation = new OperationalAutomation(
+      new PostgresAutomationRepository(applicationDatabase.db),
+      notificationService,
+    );
+    const workerId = `${hostname()}:${process.pid}`;
+    let activeCycle: Promise<void> | undefined;
+    const runCycle = (): void => {
+      if (activeCycle) return;
+      activeCycle = automation
+        .runCycle(workerId)
+        .then((result) => app.log.debug({ automation: result }, 'Automation cycle completed'))
+        .catch((error: unknown) => app.log.error({ err: error }, 'Automation cycle failed'))
+        .finally(() => {
+          activeCycle = undefined;
+        });
+    };
+    runCycle();
+    const timer = setInterval(runCycle, environment.AUTOMATION_POLL_SECONDS * 1_000);
+    timer.unref();
+    stopAutomation = async (): Promise<void> => {
+      clearInterval(timer);
+      if (activeCycle) await activeCycle;
+    };
+    app.log.info(
+      { pollSeconds: environment.AUTOMATION_POLL_SECONDS, workerId },
+      'Operational automation started',
+    );
+  }
+
   app.addHook('onClose', async () => {
+    if (stopAutomation) await stopAutomation();
     if (stopResidentBot) await stopResidentBot();
     if (stopStaffBot) await stopStaffBot();
     if (applicationDatabase) await applicationDatabase.close();

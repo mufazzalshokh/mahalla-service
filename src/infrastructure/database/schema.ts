@@ -22,6 +22,7 @@ import { orderStatuses } from '../../domain/orders/order-state-machine.js';
 import { requestStatuses } from '../../domain/requests/request-state-machine.js';
 import type { IntakeDraft, IntakeResponse } from '../../application/intake/intake-types.js';
 import type { InspectionItemInput } from '../../domain/quality/quality-policy.js';
+import type { NotificationPayload } from '../../domain/notifications/notification-policy.js';
 
 const createdAt = timestamp('created_at', { mode: 'date', withTimezone: true })
   .notNull()
@@ -84,11 +85,24 @@ export const qualityComplaintStatusEnum = pgEnum('quality_complaint_status', [
   'REJECTED',
 ]);
 export const qualityReworkSourceEnum = pgEnum('quality_rework_source', ['ACCEPTANCE', 'COMPLAINT']);
+export const notificationAudienceEnum = pgEnum('notification_audience', ['RESIDENT', 'STAFF']);
+export const notificationStatusEnum = pgEnum('notification_status', [
+  'PENDING',
+  'PROCESSING',
+  'DELIVERED',
+  'DEAD_LETTER',
+]);
+export const notificationAttemptOutcomeEnum = pgEnum('notification_attempt_outcome', [
+  'DELIVERED',
+  'RETRY_SCHEDULED',
+  'DEAD_LETTER',
+]);
 export const serviceRequestTicketSequence = pgSequence('service_request_ticket_seq', {
   startWith: 1,
 });
 export const orderPortfolioSequence = pgSequence('order_portfolio_seq', { startWith: 1 });
 export const qualityComplaintSequence = pgSequence('quality_complaint_seq', { startWith: 1 });
+export const notificationSequence = pgSequence('notification_seq', { startWith: 1 });
 
 export const serviceAreas = pgTable(
   'service_areas',
@@ -727,6 +741,70 @@ export const orderEscalations = pgTable(
       .on(table.orderId, table.type)
       .where(sql`${table.status} in ('OPEN', 'ACKNOWLEDGED')`),
     index('order_escalations_status_idx').on(table.status, table.createdAt),
+  ],
+);
+
+export const notificationOutbox = pgTable(
+  'notification_outbox',
+  {
+    attemptCount: integer('attempt_count').notNull().default(0),
+    audience: notificationAudienceEnum('audience').notNull(),
+    availableAt: timestamp('available_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    code: varchar('code', { length: 30 }).notNull(),
+    createdAt,
+    deduplicationKey: varchar('deduplication_key', { length: 250 }).notNull(),
+    deliveredAt: timestamp('delivered_at', { mode: 'date', withTimezone: true }),
+    eventType: varchar('event_type', { length: 100 }).notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    lastErrorCode: varchar('last_error_code', { length: 100 }),
+    lockedAt: timestamp('locked_at', { mode: 'date', withTimezone: true }),
+    lockedBy: varchar('locked_by', { length: 100 }),
+    maxAttempts: integer('max_attempts').notNull().default(5),
+    payload: jsonb('payload').$type<NotificationPayload>().notNull(),
+    recipientUserId: uuid('recipient_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    serviceAreaId: uuid('service_area_id').references(() => serviceAreas.id, {
+      onDelete: 'restrict',
+    }),
+    status: notificationStatusEnum('status').notNull().default('PENDING'),
+    updatedAt,
+  },
+  (table) => [
+    uniqueIndex('notification_outbox_code_uq').on(table.code),
+    uniqueIndex('notification_outbox_deduplication_uq').on(table.deduplicationKey),
+    index('notification_outbox_claim_idx').on(table.status, table.availableAt, table.createdAt),
+    index('notification_outbox_area_failure_idx').on(
+      table.serviceAreaId,
+      table.status,
+      table.updatedAt,
+    ),
+    check('notification_outbox_attempt_count_ck', sql`${table.attemptCount} >= 0`),
+    check('notification_outbox_max_attempts_ck', sql`${table.maxAttempts} between 1 and 20`),
+  ],
+);
+
+export const notificationDeliveryAttempts = pgTable(
+  'notification_delivery_attempts',
+  {
+    attemptNumber: integer('attempt_number').notNull(),
+    errorCode: varchar('error_code', { length: 100 }),
+    finishedAt: timestamp('finished_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    notificationId: uuid('notification_id')
+      .notNull()
+      .references(() => notificationOutbox.id, { onDelete: 'cascade' }),
+    outcome: notificationAttemptOutcomeEnum('outcome').notNull(),
+    providerMessageId: varchar('provider_message_id', { length: 100 }),
+  },
+  (table) => [
+    uniqueIndex('notification_attempt_number_uq').on(table.notificationId, table.attemptNumber),
+    index('notification_attempt_outcome_idx').on(table.outcome, table.finishedAt),
+    check('notification_attempt_number_ck', sql`${table.attemptNumber} > 0`),
   ],
 );
 

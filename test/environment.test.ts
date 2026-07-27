@@ -10,6 +10,8 @@ describe('loadEnvironment', () => {
     });
 
     expect(environment).toEqual({
+      AUTOMATION_ENABLED: false,
+      AUTOMATION_POLL_SECONDS: 30,
       DATABASE_URL: 'postgresql://user:password@localhost:5432/mck',
       HOST: '127.0.0.1',
       LOG_LEVEL: 'info',
@@ -97,5 +99,14 @@ describe('loadEnvironment', () => {
     });
     expect(environment.STAFF_BOT_ENABLED).toBe(true);
     expect(environment.STAFF_BOT_TOKEN).toMatch(/^654321:/);
+  });
+
+  it('requires both delivery tokens when automation is enabled', () => {
+    expect(() =>
+      loadEnvironment({
+        AUTOMATION_ENABLED: 'true',
+        DATABASE_URL: 'postgresql://user:password@localhost:5432/mck',
+      }),
+    ).toThrowError(/RESIDENT_BOT_TOKEN.*STAFF_BOT_TOKEN/);
   });
 });

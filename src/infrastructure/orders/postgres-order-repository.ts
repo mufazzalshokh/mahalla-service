@@ -31,6 +31,12 @@ import {
   serviceRequests,
   workLogs,
 } from '../database/schema.js';
+import {
+  enqueueNotificationIntent,
+  residentRecipientsForOrder,
+  staffRecipientsForArea,
+  type NotificationRecipient,
+} from '../notifications/notification-enqueuer.js';
 
 type OrderRow = typeof orders.$inferSelect;
 
@@ -442,6 +448,35 @@ export class PostgresOrderRepository implements OrderRepository {
         ...(reason ? { reason } : {}),
         ...(command.requestId ? { requestId: command.requestId } : {}),
       });
+
+      const effect = command.plan.definition.notification;
+      if (effect === 'none') return mapOrder(updated);
+      let recipients: readonly NotificationRecipient[];
+      if (effect.startsWith('resident.')) {
+        recipients = await residentRecipientsForOrder(tx, command.order.id);
+      } else if (effect.startsWith('operator.')) {
+        recipients = await staffRecipientsForArea(tx, command.order.serviceAreaId);
+      } else {
+        const executorUserId =
+          command.data.assigneeUserId ??
+          current.currentExecutorUserId ??
+          updated.currentExecutorUserId;
+        recipients = executorUserId ? [{ audience: 'STAFF', userId: executorUserId }] : [];
+      }
+      await enqueueNotificationIntent(
+        tx,
+        {
+          deduplicationKey: `order:${command.order.id}:v${updated.version}:${effect}`,
+          payload: {
+            ...(updated.dueAt ? { dueAt: updated.dueAt.toISOString() } : {}),
+            reference: updated.orderNumber,
+            status: updated.status,
+            templateKey: effect,
+          },
+          serviceAreaId: command.order.serviceAreaId,
+        },
+        recipients,
+      );
 
       return mapOrder(updated);
     });

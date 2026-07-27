@@ -4,6 +4,11 @@ const postgresProtocols = new Set(['postgres:', 'postgresql:']);
 
 const environmentSchema = z
   .object({
+    AUTOMATION_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    AUTOMATION_POLL_SECONDS: z.coerce.number().int().min(5).max(3600).default(30),
     DATABASE_URL: z
       .string()
       .url()
@@ -52,6 +57,20 @@ const environmentSchema = z
       context.addIssue({
         code: 'custom',
         message: 'is required when STAFF_BOT_ENABLED=true',
+        path: ['STAFF_BOT_TOKEN'],
+      });
+    }
+    if (value.AUTOMATION_ENABLED && !value.RESIDENT_BOT_TOKEN) {
+      context.addIssue({
+        code: 'custom',
+        message: 'is required when AUTOMATION_ENABLED=true',
+        path: ['RESIDENT_BOT_TOKEN'],
+      });
+    }
+    if (value.AUTOMATION_ENABLED && !value.STAFF_BOT_TOKEN) {
+      context.addIssue({
+        code: 'custom',
+        message: 'is required when AUTOMATION_ENABLED=true',
         path: ['STAFF_BOT_TOKEN'],
       });
     }

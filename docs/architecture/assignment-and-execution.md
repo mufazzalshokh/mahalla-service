@@ -28,7 +28,10 @@ The pilot deadline is an operational UTC timestamp supplied with an explicit tim
 | Completion submitted          | Stop clock                         |
 | Assignment rejected/cancelled | Stop current clock                 |
 
-`/overdue` compares current time with the deadline for assigned, active, and blocked orders. It inserts an escalation only if no open or acknowledged escalation exists. CP-07 will automate scanning and notifications.
+`/overdue` remains an on-demand view. CP-07 also scans assigned, active, blocked, and rework orders
+on the application timer. It inserts an escalation only if no open or acknowledged escalation
+exists and enqueues one deduplicated operator alert. Staff may acknowledge the alert; resolution is
+rejected until the order no longer remains overdue.
 
 ## Evidence boundary
 

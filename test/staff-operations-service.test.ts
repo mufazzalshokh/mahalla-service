@@ -12,6 +12,8 @@ const principal: Principal = {
     { permission: 'order.read.area', serviceAreaId: 'area' },
     { permission: 'order.assign', serviceAreaId: 'area' },
     { permission: 'order.escalation.review', serviceAreaId: 'area' },
+    { permission: 'order.escalation.manage', serviceAreaId: 'area' },
+    { permission: 'notification.manage', serviceAreaId: 'area' },
   ],
   userId: 'staff',
 };
@@ -29,6 +31,7 @@ function createService(): {
     listMine: vi.fn().mockResolvedValue([]),
     scanOverdue: vi.fn().mockResolvedValue([]),
     transition: vi.fn().mockResolvedValue({ orderNumber: 'ORD-1' }),
+    updateDeadlineEscalation: vi.fn().mockResolvedValue({ orderNumber: 'ORD-1' }),
   };
   const quality = {
     accept: vi.fn().mockResolvedValue({ orderNumber: 'ORD-1' }),
@@ -41,6 +44,10 @@ function createService(): {
   };
   const dependencies = {
     execution,
+    notifications: {
+      listDeadLetters: vi.fn().mockResolvedValue([]),
+      recover: vi.fn().mockResolvedValue(undefined),
+    },
     principals: { loadByTelegramUserId: vi.fn().mockResolvedValue(principal) },
     quality,
   } as unknown as StaffOperationDependencies;
@@ -77,6 +84,10 @@ describe('staff execution operations', () => {
         orderNumber: 'ORD-1',
       },
       { kind: 'overdue' },
+      { kind: 'acknowledge-overdue', orderNumber: 'ORD-1' },
+      { kind: 'resolve-overdue', orderNumber: 'ORD-1' },
+      { kind: 'failed-notifications' },
+      { code: 'NTF-1', kind: 'retry-notification' },
       { kind: 'quality-checklist', orderNumber: 'ORD-1' },
       {
         kind: 'quality-inspection',
@@ -103,6 +114,7 @@ describe('staff execution operations', () => {
     expect(execution.addProgress).toHaveBeenCalledOnce();
     expect(execution.addEvidence).toHaveBeenCalledOnce();
     expect(execution.scanOverdue).toHaveBeenCalledOnce();
+    expect(execution.updateDeadlineEscalation).toHaveBeenCalledTimes(2);
     expect(quality.checklist).toHaveBeenCalledOnce();
     expect(quality.inspect).toHaveBeenCalledOnce();
     expect(quality.accept).toHaveBeenCalledOnce();

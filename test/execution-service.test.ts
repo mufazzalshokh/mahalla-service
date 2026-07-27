@@ -47,6 +47,7 @@ function fakeRepository(): ExecutionRepository {
     listAssignedOrders: vi.fn().mockResolvedValue([order]),
     listEligibleExecutors: vi.fn().mockResolvedValue([]),
     scanOverdue: vi.fn().mockResolvedValue([]),
+    updateDeadlineEscalation: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -155,5 +156,40 @@ describe('execution service', () => {
       new Date('2026-07-30T00:00:00Z'),
       reviewer,
     );
+  });
+
+  it('acknowledges an alert but resolves only after the overdue cause ends', async () => {
+    const manager: Principal = {
+      grants: [{ permission: 'order.escalation.manage', serviceAreaId: 'area' }],
+      userId: 'operator',
+    };
+    vi.mocked(repository.updateDeadlineEscalation).mockResolvedValue({
+      dueAt: new Date('2026-07-29T10:00:00Z'),
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      status: 'ACKNOWLEDGED',
+    });
+    await expect(
+      service.updateDeadlineEscalation('ORD-1', 'ACKNOWLEDGED', manager),
+    ).resolves.toMatchObject({ status: 'ACKNOWLEDGED' });
+    await expect(
+      service.updateDeadlineEscalation('ORD-1', 'RESOLVED', manager),
+    ).rejects.toMatchObject({ code: 'ESCALATION_CAUSE_ACTIVE' });
+    vi.mocked(repository.findOrderByNumber).mockResolvedValue({
+      ...order,
+      status: 'AWAITING_ACCEPTANCE',
+    });
+    vi.mocked(repository.updateDeadlineEscalation).mockResolvedValue({
+      dueAt: new Date('2026-07-29T10:00:00Z'),
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      status: 'RESOLVED',
+    });
+    await expect(
+      service.updateDeadlineEscalation('ORD-1', 'RESOLVED', manager),
+    ).resolves.toMatchObject({ status: 'RESOLVED' });
+    await expect(
+      service.updateDeadlineEscalation('ORD-1', 'RESOLVED', { ...manager, grants: [] }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 });

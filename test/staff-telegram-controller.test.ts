@@ -70,7 +70,15 @@ describe('staff Telegram controller', () => {
     await controller.handle(2n, '/unblock ord-1 Suv yopildi');
     await controller.handle(2n, '/complete ord-1 Quvur almashtirildi');
     await controller.handle(2n, '/overdue');
-    expect(execute).toHaveBeenCalledTimes(9);
+    await controller.handle(2n, '/ackoverdue ord-1');
+    await controller.handle(2n, '/resolveoverdue ord-1');
+    await controller.handle(2n, '/failednotifications');
+    await controller.handle(2n, '/retrynotification ntf-1');
+    expect(execute).toHaveBeenCalledTimes(13);
+    expect(execute).toHaveBeenLastCalledWith(2n, {
+      code: 'NTF-1',
+      kind: 'retry-notification',
+    });
   });
 
   it('normalizes Telegram photo evidence from its caption', async () => {

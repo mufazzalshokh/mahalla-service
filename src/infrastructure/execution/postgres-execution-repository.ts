@@ -233,4 +233,52 @@ export class PostgresExecutionRepository implements ExecutionRepository {
       return rows.flatMap((row) => (row.dueAt ? [{ ...row, dueAt: row.dueAt }] : []));
     });
   }
+
+  async updateDeadlineEscalation(
+    order: ExecutionOrderRecord,
+    status: 'ACKNOWLEDGED' | 'RESOLVED',
+    actor: Principal,
+    now: Date,
+  ): Promise<EscalationRecord | undefined> {
+    return this.database.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(orderEscalations)
+        .set(
+          status === 'ACKNOWLEDGED'
+            ? {
+                acknowledgedAt: now,
+                acknowledgedByUserId: actor.userId,
+                status,
+              }
+            : { resolvedAt: now, status },
+        )
+        .where(
+          and(
+            eq(orderEscalations.orderId, order.id),
+            eq(orderEscalations.type, 'DEADLINE_OVERDUE'),
+            status === 'ACKNOWLEDGED'
+              ? eq(orderEscalations.status, 'OPEN')
+              : inArray(orderEscalations.status, ['OPEN', 'ACKNOWLEDGED']),
+          ),
+        )
+        .returning({ id: orderEscalations.id });
+      if (!updated || !order.dueAt) return undefined;
+      await tx.insert(auditLogs).values({
+        action:
+          status === 'ACKNOWLEDGED'
+            ? 'order.deadline_escalation_acknowledged'
+            : 'order.deadline_escalation_resolved',
+        actorUserId: actor.userId,
+        after: { escalationId: updated.id, status },
+        entityId: order.id,
+        entityType: 'order',
+      });
+      return {
+        dueAt: order.dueAt,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        status,
+      };
+    });
+  }
 }

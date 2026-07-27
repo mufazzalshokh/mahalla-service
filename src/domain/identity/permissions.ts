@@ -19,6 +19,8 @@ export const permissionKeys = [
   'order.start_rework',
   'order.cancel',
   'order.escalation.review',
+  'order.escalation.manage',
+  'notification.manage',
   'quality.inspect',
   'quality.accept',
   'quality.require_rework',

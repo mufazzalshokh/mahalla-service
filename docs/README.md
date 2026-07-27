@@ -5,7 +5,8 @@ This directory is the source of truth for the incremental Mahalla Service Compan
 
 ## Current checkpoint
 
-CP-00 through CP-06 are approved. CP-07 notifications and operational automation has not started.
+CP-00 through CP-06 are approved. CP-07 notifications and operational automation is implemented
+and awaiting checkpoint approval.
 
 ## Documents
 
@@ -28,6 +29,7 @@ CP-00 through CP-06 are approved. CP-07 notifications and operational automation
 - [Validation, duplicate review, and priority](architecture/triage-and-priority.md)
 - [Assignment and execution](architecture/assignment-and-execution.md)
 - [Quality and complaints](architecture/quality-and-complaints.md)
+- [Notifications and operational automation](architecture/notifications-and-automation.md)
 - [Pilot deployment](architecture/deployment.md)
 - [Testing strategy](testing-strategy.md)
 - [Local development runbook](runbooks/local-development.md)
@@ -44,6 +46,7 @@ CP-00 through CP-06 are approved. CP-07 notifications and operational automation
 - [ADR-0005: Deterministic priority and human duplicate decisions](adr/ADR-0005-deterministic-priority-and-human-duplicate-decisions.md)
 - [ADR-0006: Pilot execution SLA and evidence](adr/ADR-0006-pilot-execution-sla-and-evidence.md)
 - [ADR-0007: Pilot quality and complaint control](adr/ADR-0007-pilot-quality-and-complaint-control.md)
+- [ADR-0008: PostgreSQL outbox and in-process automation](adr/ADR-0008-postgresql-outbox-and-in-process-automation.md)
 - [CP-00 checkpoint record](checkpoints/CP-00-discovery.md)
 - [CP-01 checkpoint record](checkpoints/CP-01-engineering-foundation.md)
 - [CP-02 checkpoint record](checkpoints/CP-02-domain-model-and-persistence.md)
@@ -51,6 +54,7 @@ CP-00 through CP-06 are approved. CP-07 notifications and operational automation
 - [CP-04 checkpoint record](checkpoints/CP-04-validation-triage-and-priority.md)
 - [CP-05 checkpoint record](checkpoints/CP-05-assignment-and-execution.md)
 - [CP-06 checkpoint record](checkpoints/CP-06-quality-acceptance-and-complaints.md)
+- [CP-07 checkpoint record](checkpoints/CP-07-notifications-and-operational-automation.md)
 
 ## Evidence hierarchy
 

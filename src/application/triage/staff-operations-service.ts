@@ -14,6 +14,7 @@ import type { WorkEvidenceInput } from '../../domain/execution/work-evidence-pol
 import type { ExecutionService } from '../execution/execution-service.js';
 import type { QualityService } from '../quality/quality-service.js';
 import type { InspectionItemInput } from '../../domain/quality/quality-policy.js';
+import type { NotificationService } from '../notifications/notification-service.js';
 
 export interface StaffOperations {
   execute(telegramUserId: bigint, command: StaffOperationCommand): Promise<string>;
@@ -67,6 +68,10 @@ export type StaffOperationCommand =
       readonly orderNumber: string;
     }
   | { readonly kind: 'overdue' }
+  | { readonly kind: 'acknowledge-overdue'; readonly orderNumber: string }
+  | { readonly kind: 'resolve-overdue'; readonly orderNumber: string }
+  | { readonly kind: 'failed-notifications' }
+  | { readonly code: string; readonly kind: 'retry-notification' }
   | { readonly kind: 'quality-checklist'; readonly orderNumber: string }
   | {
       readonly kind: 'quality-inspection';
@@ -91,6 +96,7 @@ export interface StaffOperationDependencies {
   readonly decideDuplicate: DecideDuplicateService;
   readonly execution: ExecutionService;
   readonly listQueue: ListValidationQueueService;
+  readonly notifications: NotificationService;
   readonly overridePriority: OverridePriorityService;
   readonly principals: PrincipalProvider;
   readonly quality: QualityService;
@@ -288,6 +294,36 @@ export class StaffOperationsService implements StaffOperations {
               )
               .join('\n');
       }
+      case 'acknowledge-overdue': {
+        const escalation = await this.dependencies.execution.updateDeadlineEscalation(
+          command.orderNumber,
+          'ACKNOWLEDGED',
+          principal,
+        );
+        return `${escalation.orderNumber}: kechikish ogohlantirishi qabul qilindi.`;
+      }
+      case 'resolve-overdue': {
+        const escalation = await this.dependencies.execution.updateDeadlineEscalation(
+          command.orderNumber,
+          'RESOLVED',
+          principal,
+        );
+        return `${escalation.orderNumber}: kechikish ogohlantirishi yopildi.`;
+      }
+      case 'failed-notifications': {
+        const failures = await this.dependencies.notifications.listDeadLetters(principal);
+        return failures.length === 0
+          ? 'Yuborilmagan xabar yo‘q.'
+          : failures
+              .map(
+                ({ attemptCount, code, eventType, lastErrorCode }) =>
+                  `${code} — ${eventType} — ${lastErrorCode ?? 'UNKNOWN'} (${attemptCount})`,
+              )
+              .join('\n');
+      }
+      case 'retry-notification':
+        await this.dependencies.notifications.recover(command.code, principal);
+        return `${command.code}: xabar qayta yuborish navbatiga qo‘yildi.`;
       case 'quality-checklist': {
         const policy = await this.dependencies.quality.checklist(command.orderNumber, principal);
         return [

@@ -8,6 +8,8 @@ Use a BotFather token supplied through the local environment. Never commit or pa
 Copy-Item .env.example .env
 $env:RESIDENT_BOT_ENABLED='true'
 $env:RESIDENT_BOT_TOKEN='<secret from approved channel>'
+$env:AUTOMATION_ENABLED='true'
+$env:STAFF_BOT_TOKEN='<separate staff bot secret from approved channel>'
 $env:DATABASE_URL='postgresql://mck:mck_local_only@127.0.0.1:5432/mck'
 pnpm.cmd db:migrate
 pnpm.cmd db:seed
@@ -36,6 +38,10 @@ Only one long-polling resident-bot process may run for a token. The database ide
 - A missing or invalid token prevents startup when `RESIDENT_BOT_ENABLED=true`.
 - Handler errors log only the update identifier and normalized error; the resident receives a generic message.
 - Run migrations and seeds as a controlled release step before enabling polling.
+- Material status, information, acceptance, and complaint-decision messages are delivered from
+  the durable outbox when automation is enabled. Both bot tokens are required in that mode.
+- Delivery is at-least-once; a rare duplicate is possible if the process stops after Telegram
+  accepts a message but before the database records success.
 - Stop the application gracefully with Ctrl+C/SIGTERM so long polling and database pools close.
 
 ## Current restrictions

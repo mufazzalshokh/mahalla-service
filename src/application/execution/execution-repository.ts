@@ -44,4 +44,10 @@ export interface ExecutionRepository {
     now: Date,
     actor: Principal,
   ): Promise<readonly EscalationRecord[]>;
+  updateDeadlineEscalation(
+    order: ExecutionOrderRecord,
+    status: 'ACKNOWLEDGED' | 'RESOLVED',
+    actor: Principal,
+    now: Date,
+  ): Promise<EscalationRecord | undefined>;
 }

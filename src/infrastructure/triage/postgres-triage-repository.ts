@@ -33,6 +33,7 @@ import {
   requestStatusHistory,
   serviceRequests,
 } from '../database/schema.js';
+import { enqueueNotificationIntent } from '../notifications/notification-enqueuer.js';
 
 function numberOrNull(value: string | null): number | null {
   return value === null ? null : Number(value);
@@ -497,6 +498,19 @@ export class PostgresTriageRepository implements TriageRepository {
         entityId: request.id,
         entityType: 'service_request',
       });
+      await enqueueNotificationIntent(
+        tx,
+        {
+          deduplicationKey: `request:${request.id}:v${updatedRequest.version}:resident.status_changed`,
+          payload: {
+            reference: request.ticketNumber,
+            status: 'REGISTERED',
+            templateKey: 'resident.status_changed',
+          },
+          serviceAreaId: request.serviceAreaId,
+        },
+        [{ audience: 'RESIDENT', userId: request.requesterUserId }],
+      );
       return {
         linkedToExistingOrder: Boolean(existingLink),
         orderId,

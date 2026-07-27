@@ -7,6 +7,8 @@ Create a separate BotFather bot from the resident bot. Store its token outside G
 ```text
 STAFF_BOT_ENABLED=true
 STAFF_BOT_TOKEN=<secret token>
+AUTOMATION_ENABLED=true
+AUTOMATION_POLL_SECONDS=30
 ```
 
 The Telegram account must map to an active `users.telegram_user_id` and an area-scoped `operator_manager` role. Every command reloads persisted grants; possession of the bot token or knowledge of a command grants no business permission.
@@ -33,6 +35,10 @@ The Telegram account must map to an active `users.telegram_user_id` and an area-
 /unblock ORDER resolution note
 /complete ORDER completion summary
 /overdue
+/ackoverdue ORDER
+/resolveoverdue ORDER
+/failednotifications
+/retrynotification NTF_CODE
 /checklist ORDER
 /inspect ORDER WORK_COMPLETE=PASS,RESULT_TESTED=PASS,AREA_CLEAN=PASS summary
 /approve ORDER
@@ -54,7 +60,11 @@ Residents answer a missing-information request in the resident bot with `/respon
 - Use `/executors ORDER` before assignment; only active, available, scoped, category-capable profiles appear.
 - Include a timezone offset or `Z` in deadlines; ambiguous timestamps are rejected.
 - Executors accept before progress or `AFTER` evidence. A decline preserves the attempt and returns the order for reassignment.
-- Run `/overdue` at the start and end of each operator shift until CP-07 automation exists.
+- `/overdue` remains an on-demand view; automation scans deadlines and complaint review targets.
+- Acknowledge an active alert with `/ackoverdue`. Resolve it only after the order is no longer
+  overdue; active overdue causes are rejected.
+- Review `/failednotifications` each shift. Correct a missing/disabled Telegram account before
+  `/retrynotification`; recovery resets the delivery counter but preserves prior attempt history.
 - Use `/checklist` before `/inspect`; required items cannot be `NOT_APPLICABLE`.
 - `/approve` may require a passing inspection. `/rework` creates a fresh executor assignment and SLA.
 - `/complaints` is a review queue. A complaint does not reopen work until authorized `/reopen` records a reason.

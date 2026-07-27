@@ -39,6 +39,8 @@ const rolePermissionMap: Readonly<Record<string, readonly PermissionKey[]>> = {
     'order.assign',
     'order.cancel',
     'order.escalation.review',
+    'order.escalation.manage',
+    'notification.manage',
     'quality.inspect',
     'quality.accept',
     'quality.require_rework',

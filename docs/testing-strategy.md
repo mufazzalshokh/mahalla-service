@@ -56,3 +56,14 @@ controller and application behavior are tested without requiring a live bot toke
   rework assignment/SLA, audit, and concurrency tests.
 - At least 90% statements, branches, functions, and lines for the critical quality policy.
 - Additive migration review, repeated migration/seed execution, and full prior integration suite.
+
+## CP-07 gates
+
+- Pure retry/backoff boundaries and fixed-template rendering tests.
+- Notification worker tests for success, unexpected/transient failure, permanent failure,
+  missing Telegram identity, authorization, and manual recovery.
+- Staff parsing/dispatch tests for alert acknowledgement/resolution and dead-letter operations.
+- Real PostgreSQL lifecycle/outbox atomicity, two-worker `SKIP LOCKED` uniqueness, delivery-attempt,
+  dead-letter/recovery, automated deadline/complaint scan, deduplication, and escalation tests.
+- Fresh migration plus repeated migration/seed and every prior PostgreSQL integration suite.
+- At least 80% overall executable coverage and the existing critical-policy thresholds.

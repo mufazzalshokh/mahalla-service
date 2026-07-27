@@ -4,6 +4,7 @@ import postgres, { type Sql } from 'postgres';
 import * as schema from './schema.js';
 
 export type MckDatabase = PostgresJsDatabase<typeof schema>;
+export type MckTransaction = Parameters<Parameters<MckDatabase['transaction']>[0]>[0];
 
 export interface DatabaseClient {
   readonly db: MckDatabase;
