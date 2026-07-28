@@ -8,6 +8,11 @@ flowchart TB
   HTTP --> Health[Health application service]
   PG -. implements .-> Probe[Readiness probe port]
   Health --> Probe
+  Main --> StaffBot[Staff Telegram adapter]
+  StaffBot --> Commercial[Commercial application service]
+  Commercial --> Policy[Exact money/domain policy]
+  Commercial --> CommercialPort[Commercial repository port]
+  PGCommercial[PostgreSQL commercial adapter] -. implements .-> CommercialPort
 ```
 
 ## Dependency rules

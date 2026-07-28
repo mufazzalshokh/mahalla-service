@@ -16,9 +16,12 @@ The Telegram account must map to an active `users.telegram_user_id` and an area-
 ## Button-first operation
 
 Send `/start` or `/menu`, choose Uzbek or Russian, and use the persistent menu. Routine queues,
-reports, complaints, notifications, orders and PDCA actions are available as buttons. Entity lists
+reports, finance, complaints, notifications, orders and PDCA actions are available as buttons. Entity lists
 open contextual action buttons. The bot asks for text only when the business record needs a factual
 reason, note, score, deadline or summary.
+
+Commercial records use the `💰 Moliya / Финансы` button. Follow the dedicated
+[commercial workflow](commercial-bot.md); use synthetic amounts until finance/legal approves OQ-009.
 
 ## Staff onboarding
 

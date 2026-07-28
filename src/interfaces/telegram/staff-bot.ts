@@ -19,6 +19,7 @@ import {
   staffAccessActions,
   staffAccessListMenu,
   staffEntityMenu,
+  staffFinanceMenu,
   staffLanguageMenu,
   staffMainMenu,
   staffMenuActionForText,
@@ -81,6 +82,9 @@ function referencesForCommand(
   }
   if (command === '/staff') {
     return staffAccessListMenu(referencesFromText(text, 'STF'), language);
+  }
+  if (command.startsWith('/finance ')) {
+    return staffEntityMenu('document', referencesFromText(text, 'DOC'));
   }
   return undefined;
 }
@@ -203,6 +207,15 @@ export function createStaffBot(options: StaffBotOptions): Bot {
       });
       return;
     }
+    if (action === 'finance') {
+      await ctx.reply(
+        localized(selected, 'Moliyaviy amalni tanlang.', 'Выберите финансовое действие.'),
+        {
+          reply_markup: staffFinanceMenu(selected),
+        },
+      );
+      return;
+    }
     const command = commands[action];
     if (command) await execute(ctx, command);
   };
@@ -289,7 +302,80 @@ export function createStaffBot(options: StaffBotOptions): Bot {
       await execute(ctx, `/${kind} ${action}`);
       return;
     }
+    if (kind === 'finance' && action) {
+      const prompts: Readonly<Record<string, PendingText>> = {
+        acceptquote: {
+          prefix: '/acceptquote',
+          prompt: {
+            ru: 'Введите: QUO-КОД | подтверждение согласия клиента. Например: QUO-2026-00000001 | согласовано по телефону 28.07.2026',
+            uz: 'Kiriting: QUO-KOD | mijoz roziligi tasdig‘i. Masalan: QUO-2026-00000001 | 28.07.2026 telefon orqali kelishildi',
+          },
+        },
+        certificate: {
+          prefix: '/certificate',
+          prompt: {
+            ru: 'Введите: ORDER | краткий результат принятой работы.',
+            uz: 'Kiriting: ORDER | qabul qilingan ishning qisqa natijasi.',
+          },
+        },
+        configure: {
+          prefix: '/commercial',
+          prompt: {
+            ru: 'Введите: ORDER | FIXED_PRICE или NO_CHARGE | RESIDENT/ORGANIZATION/GRANT/SOCIAL_FUNDING/ADDITIONAL_SERVICE | REQUIRED или OPTIONAL.',
+            uz: 'Kiriting: ORDER | FIXED_PRICE yoki NO_CHARGE | RESIDENT/ORGANIZATION/GRANT/SOCIAL_FUNDING/ADDITIONAL_SERVICE | REQUIRED yoki OPTIONAL.',
+          },
+        },
+        contract: {
+          prefix: '/contract',
+          prompt: {
+            ru: 'Введите: ORDER | внешний номер договора | краткие условия.',
+            uz: 'Kiriting: ORDER | shartnomaning tashqi raqami | qisqa shartlar.',
+          },
+        },
+        document: {
+          prefix: '/document',
+          prompt: { ru: 'Введите DOC-код.', uz: 'DOC-kodni kiriting.' },
+        },
+        expense: {
+          prefix: '/expense',
+          prompt: {
+            ru: 'Введите: ORDER | сумма UZS | LABOR/MATERIAL/TRANSPORT/OTHER | ДД.ММ.ГГГГ | описание.',
+            uz: 'Kiriting: ORDER | UZS summa | LABOR/MATERIAL/TRANSPORT/OTHER | KK.OO.YYYY | izoh.',
+          },
+        },
+        payment: {
+          prefix: '/payment',
+          prompt: {
+            ru: 'Введите: ORDER | сумма UZS | CASH/BANK_TRANSFER/OTHER | ДД.ММ.ГГГГ | номер чека или подтверждение.',
+            uz: 'Kiriting: ORDER | UZS summa | CASH/BANK_TRANSFER/OTHER | KK.OO.YYYY | chek raqami yoki tasdiq.',
+          },
+        },
+        quote: {
+          prefix: '/quote',
+          prompt: {
+            ru: 'Введите: ORDER | работа | материалы | прочее | действует до ДД.ММ.ГГГГ | объём работ. Суммы — целые UZS без запятых.',
+            uz: 'Kiriting: ORDER | mehnat | material | boshqa | KK.OO.YYYY gacha | ish hajmi. Summalar vergulsiz butun UZS.',
+          },
+        },
+        summary: {
+          prefix: '/finance',
+          prompt: { ru: 'Введите номер заказа ORD-…', uz: 'ORD-… buyurtma raqamini kiriting.' },
+        },
+      };
+      const pending = prompts[action];
+      await ctx.answerCallbackQuery();
+      if (pending) {
+        pendingText.set(key, pending);
+        await ctx.reply(pending.prompt[selected]);
+      }
+      return;
+    }
     if (kind === 'entity' && reference) {
+      if (action === 'document') {
+        await ctx.answerCallbackQuery();
+        await execute(ctx, `/document ${reference}`);
+        return;
+      }
       const menus: Record<string, InlineKeyboard> = {
         complaint: complaintActions(reference, selected),
         notification: new InlineKeyboard().text(

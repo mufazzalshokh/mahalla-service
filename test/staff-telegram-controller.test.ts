@@ -221,6 +221,66 @@ describe('staff Telegram controller', () => {
     });
   });
 
+  it('parses pipe-delimited commercial records with exact UZS amounts and Tashkent dates', async () => {
+    const execute = vi.fn().mockResolvedValue('ok');
+    const controller = new StaffTelegramController({ execute });
+    await controller.handle(2n, '/commercial ord-1 | FIXED_PRICE | RESIDENT | REQUIRED');
+    await controller.handle(
+      2n,
+      '/quote ord-1 | 250000 | 1200000 | 50000 | 10.08.2026 | Quvurni to‘liq almashtirish',
+    );
+    await controller.handle(2n, '/payment ord-1 | 500000 | CASH | 28.07.2026 | Kassa 17');
+    await controller.handle(
+      2n,
+      '/expense ord-1 | 800000 | MATERIAL | 28.07.2026 | Quvur va ulanish qismlari',
+    );
+    expect(execute).toHaveBeenNthCalledWith(1, 2n, {
+      billingType: 'FIXED_PRICE',
+      contractRequired: true,
+      kind: 'commercial-configure',
+      orderNumber: 'ORD-1',
+      revenueSourceCode: 'RESIDENT',
+    });
+    expect(execute).toHaveBeenNthCalledWith(2, 2n, {
+      kind: 'quotation-issue',
+      laborAmount: 250000n,
+      materialAmount: 1200000n,
+      orderNumber: 'ORD-1',
+      otherAmount: 50000n,
+      scope: 'Quvurni to‘liq almashtirish',
+      validUntil: new Date('2026-08-10T18:59:00.000Z'),
+    });
+    expect(execute).toHaveBeenNthCalledWith(3, 2n, {
+      amount: 500000n,
+      kind: 'payment-record',
+      method: 'CASH',
+      orderNumber: 'ORD-1',
+      paidAt: new Date('2026-07-27T19:00:00.000Z'),
+      proofReference: 'Kassa 17',
+    });
+    expect(execute).toHaveBeenNthCalledWith(4, 2n, {
+      amount: 800000n,
+      category: 'MATERIAL',
+      description: 'Quvur va ulanish qismlari',
+      incurredAt: new Date('2026-07-27T19:00:00.000Z'),
+      kind: 'expense-record',
+      orderNumber: 'ORD-1',
+    });
+  });
+
+  it('rejects malformed commercial amounts, dates, and classifications', async () => {
+    const controller = new StaffTelegramController({ execute: vi.fn() });
+    await expect(
+      controller.handle(2n, '/commercial ORD-1 | CREDIT | RESIDENT | OPTIONAL'),
+    ).rejects.toThrow(/BILLING/u);
+    await expect(
+      controller.handle(2n, '/payment ORD-1 | 12.50 | CASH | 28.07.2026 | receipt'),
+    ).rejects.toThrow(/Foydalanish/u);
+    await expect(
+      controller.handle(2n, '/expense ORD-1 | 100 | MATERIAL | 2026-07-28 | parts'),
+    ).rejects.toThrow(/Foydalanish/u);
+  });
+
   it('rejects malformed reporting and PDCA commands', async () => {
     const controller = new StaffTelegramController({ execute: vi.fn() });
     await expect(controller.handle(2n, '/report year')).rejects.toThrow(/week/i);

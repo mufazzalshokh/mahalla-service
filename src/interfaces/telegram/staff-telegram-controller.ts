@@ -10,6 +10,16 @@ import { pdcaStages, type PdcaStage } from '../../domain/pdca/pdca-policy.js';
 import type { ReportPeriodKind } from '../../domain/reporting/reporting-period.js';
 import { parseTashkentDateTime } from '../../domain/shared/tashkent-date-time.js';
 import type { BotLanguage } from '../../application/localization/bot-language.js';
+import {
+  billingTypes,
+  expenseCategories,
+  paymentMethods,
+  revenueSourceCodes,
+  type BillingType,
+  type ExpenseCategory,
+  type PaymentMethod,
+  type RevenueSourceCode,
+} from '../../domain/commercial/commercial-policy.js';
 
 const helpCommands = [
   '/queue',
@@ -18,6 +28,15 @@ const helpCommands = [
   '/staffgrant TELEGRAM_ID operator_manager|executor AREA full name',
   '/staffsuspend STF_CODE reason',
   '/staffrestore STF_CODE',
+  '/commercial ORDER|FIXED_PRICE|RESIDENT|REQUIRED',
+  '/quote ORDER|labor|material|other|DD.MM.YYYY|scope',
+  '/acceptquote QUO|customer approval reference',
+  '/contract ORDER|external reference|terms summary',
+  '/certificate ORDER|work acceptance summary',
+  '/payment ORDER|amount|CASH|DD.MM.YYYY|proof reference',
+  '/expense ORDER|amount|MATERIAL|DD.MM.YYYY|description',
+  '/finance ORDER',
+  '/document DOC_CODE',
   '/validate TICKET',
   '/info TICKET savol',
   '/triage TICKET safety urgency affected social (har biri 0..5)',
@@ -80,6 +99,42 @@ function positiveBigInt(value: string | undefined, usage: string): bigint {
     // Converted to the same safe command-usage error below.
   }
   throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
+}
+
+function money(value: string | undefined, usage: string): bigint {
+  const normalized = required(value, usage).replace(/[\s_]/gu, '');
+  if (!/^\d+$/u.test(normalized)) {
+    throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
+  }
+  const amount = BigInt(normalized);
+  if (amount <= 0n) throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
+  return amount;
+}
+
+function zeroOrPositiveMoney(value: string | undefined, usage: string): bigint {
+  const normalized = required(value, usage).replace(/[\s_]/gu, '');
+  if (!/^\d+$/u.test(normalized)) {
+    throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
+  }
+  return BigInt(normalized);
+}
+
+function pipeFields(text: string, usage: string, count: number): readonly string[] {
+  const separator = text.search(/\s/u);
+  const tail = separator < 0 ? '' : text.slice(separator + 1);
+  const fields = tail.split('|').map((value) => value.trim());
+  if (fields.length !== count || fields.some((value) => !value)) {
+    throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
+  }
+  return fields;
+}
+
+function localDate(value: string, usage: string, endOfDay = false): Date {
+  try {
+    return parseTashkentDateTime(value, endOfDay ? '23:59' : '00:00');
+  } catch {
+    throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
+  }
 }
 
 function deadline(
@@ -174,6 +229,107 @@ function parse(text: string): StaffOperationCommand | 'help' {
       };
     case '/staffrestore':
       return { code: ticket(), kind: 'staff-restore' };
+    case '/commercial': {
+      const usage = '/commercial ORDER|NO_CHARGE|FIXED_PRICE source REQUIRED|OPTIONAL';
+      const fields = pipeFields(text, usage, 4);
+      const [orderNumber, rawBillingType, rawRevenueSource, rawContract] = fields;
+      const billingType = rawBillingType?.toUpperCase();
+      const revenueSourceCode = rawRevenueSource?.toUpperCase();
+      const contract = rawContract?.toUpperCase();
+      if (!billingTypes.includes(billingType as BillingType)) {
+        throw new DomainRuleError('COMMAND_INVALID', `BILLING: ${billingTypes.join('|')}`);
+      }
+      if (!revenueSourceCodes.includes(revenueSourceCode as RevenueSourceCode)) {
+        throw new DomainRuleError('COMMAND_INVALID', `SOURCE: ${revenueSourceCodes.join('|')}`);
+      }
+      if (contract !== 'REQUIRED' && contract !== 'OPTIONAL') {
+        throw new DomainRuleError('COMMAND_INVALID', 'CONTRACT: REQUIRED|OPTIONAL');
+      }
+      return {
+        billingType: billingType as BillingType,
+        contractRequired: contract === 'REQUIRED',
+        kind: 'commercial-configure',
+        orderNumber: required(orderNumber, usage).toUpperCase(),
+        revenueSourceCode: revenueSourceCode as RevenueSourceCode,
+      };
+    }
+    case '/quote': {
+      const usage = '/quote ORDER|labor|material|other|DD.MM.YYYY|scope';
+      const fields = pipeFields(text, usage, 6);
+      return {
+        kind: 'quotation-issue',
+        laborAmount: zeroOrPositiveMoney(fields[1], usage),
+        materialAmount: zeroOrPositiveMoney(fields[2], usage),
+        orderNumber: required(fields[0], usage).toUpperCase(),
+        otherAmount: zeroOrPositiveMoney(fields[3], usage),
+        scope: required(fields[5], usage),
+        validUntil: localDate(required(fields[4], usage), usage, true),
+      };
+    }
+    case '/acceptquote': {
+      const usage = '/acceptquote QUO|customer approval reference';
+      const fields = pipeFields(text, usage, 2);
+      return {
+        approvalReference: required(fields[1], usage),
+        kind: 'quotation-accept',
+        quotationCode: required(fields[0], usage).toUpperCase(),
+      };
+    }
+    case '/contract': {
+      const usage = '/contract ORDER|external reference|terms summary';
+      const fields = pipeFields(text, usage, 3);
+      return {
+        externalReference: required(fields[1], usage),
+        kind: 'contract-record',
+        orderNumber: required(fields[0], usage).toUpperCase(),
+        termsSummary: required(fields[2], usage),
+      };
+    }
+    case '/certificate': {
+      const usage = '/certificate ORDER|work acceptance summary';
+      const fields = pipeFields(text, usage, 2);
+      return {
+        kind: 'acceptance-certificate',
+        orderNumber: required(fields[0], usage).toUpperCase(),
+        summary: required(fields[1], usage),
+      };
+    }
+    case '/payment': {
+      const usage = '/payment ORDER|amount|CASH|BANK_TRANSFER|OTHER|DD.MM.YYYY|proof reference';
+      const fields = pipeFields(text, usage, 5);
+      const method = fields[2]?.toUpperCase();
+      if (!paymentMethods.includes(method as PaymentMethod)) {
+        throw new DomainRuleError('COMMAND_INVALID', `METHOD: ${paymentMethods.join('|')}`);
+      }
+      return {
+        amount: money(fields[1], usage),
+        kind: 'payment-record',
+        method: method as PaymentMethod,
+        orderNumber: required(fields[0], usage).toUpperCase(),
+        paidAt: localDate(required(fields[3], usage), usage),
+        proofReference: required(fields[4], usage),
+      };
+    }
+    case '/expense': {
+      const usage = '/expense ORDER|amount|LABOR|MATERIAL|TRANSPORT|OTHER|DD.MM.YYYY|description';
+      const fields = pipeFields(text, usage, 5);
+      const category = fields[2]?.toUpperCase();
+      if (!expenseCategories.includes(category as ExpenseCategory)) {
+        throw new DomainRuleError('COMMAND_INVALID', `CATEGORY: ${expenseCategories.join('|')}`);
+      }
+      return {
+        amount: money(fields[1], usage),
+        category: category as ExpenseCategory,
+        description: required(fields[4], usage),
+        incurredAt: localDate(required(fields[3], usage), usage),
+        kind: 'expense-record',
+        orderNumber: required(fields[0], usage).toUpperCase(),
+      };
+    }
+    case '/finance':
+      return { kind: 'finance-summary', orderNumber: ticket() };
+    case '/document':
+      return { code: ticket(), kind: 'commercial-document' };
     case '/validate':
       return { kind: 'validate', ticketNumber: ticket() };
     case '/info':

@@ -33,6 +33,49 @@ const updatedAt = timestamp('updated_at', { mode: 'date', withTimezone: true })
 
 export const userStatusEnum = pgEnum('user_status', ['ACTIVE', 'SUSPENDED', 'DISABLED']);
 export const staffAccessStatusEnum = pgEnum('staff_access_status', ['ACTIVE', 'SUSPENDED']);
+export const commercialBillingTypeEnum = pgEnum('commercial_billing_type', [
+  'NO_CHARGE',
+  'FIXED_PRICE',
+]);
+export const quotationStatusEnum = pgEnum('quotation_status', [
+  'ISSUED',
+  'ACCEPTED',
+  'REJECTED',
+  'VOID',
+]);
+export const commercialContractStatusEnum = pgEnum('commercial_contract_status', [
+  'RECORDED',
+  'VOID',
+]);
+export const acceptanceCertificateStatusEnum = pgEnum('acceptance_certificate_status', [
+  'ISSUED',
+  'VOID',
+]);
+export const commercialPaymentStatusEnum = pgEnum('commercial_payment_status', [
+  'CONFIRMED',
+  'VOID',
+]);
+export const commercialPaymentMethodEnum = pgEnum('commercial_payment_method', [
+  'CASH',
+  'BANK_TRANSFER',
+  'OTHER',
+]);
+export const commercialExpenseStatusEnum = pgEnum('commercial_expense_status', [
+  'RECORDED',
+  'VOID',
+]);
+export const commercialExpenseCategoryEnum = pgEnum('commercial_expense_category', [
+  'LABOR',
+  'MATERIAL',
+  'TRANSPORT',
+  'OTHER',
+]);
+export const commercialDocumentKindEnum = pgEnum('commercial_document_kind', [
+  'QUOTATION',
+  'CONTRACT_REFERENCE',
+  'ACCEPTANCE_CERTIFICATE',
+  'PAYMENT_RECEIPT',
+]);
 export const requestStatusEnum = pgEnum('request_status', requestStatuses);
 export const orderStatusEnum = pgEnum('order_status', orderStatuses);
 export const priorityBandEnum = pgEnum('priority_band', [
@@ -119,6 +162,16 @@ export const qualityComplaintSequence = pgSequence('quality_complaint_seq', { st
 export const notificationSequence = pgSequence('notification_seq', { startWith: 1 });
 export const pdcaActionSequence = pgSequence('pdca_action_seq', { startWith: 1 });
 export const staffProfileSequence = pgSequence('staff_profile_seq', { startWith: 1 });
+export const commercialQuotationSequence = pgSequence('commercial_quotation_seq', {
+  startWith: 1,
+});
+export const commercialContractSequence = pgSequence('commercial_contract_seq', { startWith: 1 });
+export const acceptanceCertificateSequence = pgSequence('acceptance_certificate_seq', {
+  startWith: 1,
+});
+export const commercialPaymentSequence = pgSequence('commercial_payment_seq', { startWith: 1 });
+export const commercialExpenseSequence = pgSequence('commercial_expense_seq', { startWith: 1 });
+export const commercialDocumentSequence = pgSequence('commercial_document_seq', { startWith: 1 });
 
 export const serviceAreas = pgTable(
   'service_areas',
@@ -1064,6 +1117,263 @@ export const orderAcceptances = pgTable(
   (table) => [
     uniqueIndex('order_acceptances_order_version_uq').on(table.orderId, table.orderVersion),
     check('order_acceptances_version_ck', sql`${table.orderVersion} > 0`),
+  ],
+);
+
+export const revenueSources = pgTable(
+  'revenue_sources',
+  {
+    code: varchar('code', { length: 50 }).notNull(),
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    isActive: boolean('is_active').notNull().default(true),
+    nameRu: varchar('name_ru', { length: 200 }).notNull(),
+    nameUzLatn: varchar('name_uz_latn', { length: 200 }).notNull(),
+    updatedAt,
+  },
+  (table) => [
+    uniqueIndex('revenue_sources_code_uq').on(table.code),
+    check('revenue_sources_code_ck', sql`length(trim(${table.code})) between 2 and 50`),
+  ],
+);
+
+export const orderCommercialProfiles = pgTable(
+  'order_commercial_profiles',
+  {
+    billingType: commercialBillingTypeEnum('billing_type').notNull(),
+    contractRequired: boolean('contract_required').notNull().default(false),
+    createdAt,
+    currency: varchar('currency', { length: 3 }).notNull().default('UZS'),
+    orderId: uuid('order_id')
+      .primaryKey()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    revenueSourceId: uuid('revenue_source_id')
+      .notNull()
+      .references(() => revenueSources.id, { onDelete: 'restrict' }),
+    setByUserId: uuid('set_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    updatedAt,
+  },
+  (table) => [
+    index('order_commercial_profiles_source_idx').on(table.revenueSourceId, table.billingType),
+    check('order_commercial_profiles_currency_ck', sql`${table.currency} = 'UZS'`),
+    check(
+      'order_commercial_profiles_contract_ck',
+      sql`not ${table.contractRequired} or ${table.billingType} = 'FIXED_PRICE'`,
+    ),
+  ],
+);
+
+export const commercialQuotations = pgTable(
+  'commercial_quotations',
+  {
+    acceptedAt: timestamp('accepted_at', { mode: 'date', withTimezone: true }),
+    acceptedByUserId: uuid('accepted_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    approvalReference: varchar('approval_reference', { length: 500 }),
+    code: varchar('code', { length: 30 }).notNull(),
+    createdAt,
+    createdByUserId: uuid('created_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    id: uuid('id').primaryKey().defaultRandom(),
+    laborAmount: bigint('labor_amount', { mode: 'bigint' }).notNull(),
+    materialAmount: bigint('material_amount', { mode: 'bigint' }).notNull(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    otherAmount: bigint('other_amount', { mode: 'bigint' }).notNull(),
+    scope: text('scope').notNull(),
+    status: quotationStatusEnum('status').notNull().default('ISSUED'),
+    totalAmount: bigint('total_amount', { mode: 'bigint' }).notNull(),
+    validUntil: timestamp('valid_until', { mode: 'date', withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('commercial_quotations_code_uq').on(table.code),
+    uniqueIndex('commercial_quotations_order_active_uq')
+      .on(table.orderId)
+      .where(sql`${table.status} in ('ISSUED', 'ACCEPTED')`),
+    index('commercial_quotations_status_valid_idx').on(table.status, table.validUntil),
+    check(
+      'commercial_quotations_amounts_ck',
+      sql`${table.laborAmount} >= 0 and ${table.materialAmount} >= 0 and ${table.otherAmount} >= 0 and ${table.totalAmount} > 0 and ${table.totalAmount} = ${table.laborAmount} + ${table.materialAmount} + ${table.otherAmount}`,
+    ),
+    check('commercial_quotations_scope_ck', sql`length(trim(${table.scope})) between 3 and 2000`),
+    check('commercial_quotations_valid_ck', sql`${table.validUntil} > ${table.createdAt}`),
+    check(
+      'commercial_quotations_acceptance_ck',
+      sql`(${table.status} = 'ACCEPTED' and ${table.acceptedAt} is not null and ${table.acceptedByUserId} is not null and ${table.approvalReference} is not null) or (${table.status} <> 'ACCEPTED' and ${table.acceptedAt} is null and ${table.acceptedByUserId} is null and ${table.approvalReference} is null)`,
+    ),
+  ],
+);
+
+export const commercialContracts = pgTable(
+  'commercial_contracts',
+  {
+    code: varchar('code', { length: 30 }).notNull(),
+    createdAt,
+    externalReference: varchar('external_reference', { length: 200 }).notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    quotationId: uuid('quotation_id')
+      .notNull()
+      .references(() => commercialQuotations.id, { onDelete: 'restrict' }),
+    recordedByUserId: uuid('recorded_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    status: commercialContractStatusEnum('status').notNull().default('RECORDED'),
+    termsSummary: text('terms_summary').notNull(),
+  },
+  (table) => [
+    uniqueIndex('commercial_contracts_code_uq').on(table.code),
+    uniqueIndex('commercial_contracts_external_reference_uq').on(table.externalReference),
+    uniqueIndex('commercial_contracts_order_active_uq')
+      .on(table.orderId)
+      .where(sql`${table.status} = 'RECORDED'`),
+    check(
+      'commercial_contracts_reference_ck',
+      sql`length(trim(${table.externalReference})) between 3 and 200`,
+    ),
+    check(
+      'commercial_contracts_terms_ck',
+      sql`length(trim(${table.termsSummary})) between 3 and 2000`,
+    ),
+  ],
+);
+
+export const acceptanceCertificates = pgTable(
+  'acceptance_certificates',
+  {
+    acceptanceId: uuid('acceptance_id')
+      .notNull()
+      .references(() => orderAcceptances.id, { onDelete: 'restrict' }),
+    code: varchar('code', { length: 30 }).notNull(),
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    issuedByUserId: uuid('issued_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    status: acceptanceCertificateStatusEnum('status').notNull().default('ISSUED'),
+    summary: text('summary').notNull(),
+  },
+  (table) => [
+    uniqueIndex('acceptance_certificates_code_uq').on(table.code),
+    uniqueIndex('acceptance_certificates_acceptance_uq').on(table.acceptanceId),
+    index('acceptance_certificates_order_idx').on(table.orderId, table.createdAt),
+    check(
+      'acceptance_certificates_summary_ck',
+      sql`length(trim(${table.summary})) between 3 and 2000`,
+    ),
+  ],
+);
+
+export const commercialPayments = pgTable(
+  'commercial_payments',
+  {
+    amount: bigint('amount', { mode: 'bigint' }).notNull(),
+    code: varchar('code', { length: 30 }).notNull(),
+    createdAt,
+    id: uuid('id').primaryKey().defaultRandom(),
+    method: commercialPaymentMethodEnum('method').notNull(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    paidAt: timestamp('paid_at', { mode: 'date', withTimezone: true }).notNull(),
+    proofReference: varchar('proof_reference', { length: 500 }).notNull(),
+    recordedByUserId: uuid('recorded_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    status: commercialPaymentStatusEnum('status').notNull().default('CONFIRMED'),
+  },
+  (table) => [
+    uniqueIndex('commercial_payments_code_uq').on(table.code),
+    index('commercial_payments_order_status_idx').on(table.orderId, table.status, table.paidAt),
+    check('commercial_payments_amount_ck', sql`${table.amount} > 0`),
+    check(
+      'commercial_payments_reference_ck',
+      sql`length(trim(${table.proofReference})) between 3 and 500`,
+    ),
+  ],
+);
+
+export const commercialExpenses = pgTable(
+  'commercial_expenses',
+  {
+    amount: bigint('amount', { mode: 'bigint' }).notNull(),
+    category: commercialExpenseCategoryEnum('category').notNull(),
+    code: varchar('code', { length: 30 }).notNull(),
+    createdAt,
+    description: text('description').notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    incurredAt: timestamp('incurred_at', { mode: 'date', withTimezone: true }).notNull(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    recordedByUserId: uuid('recorded_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    status: commercialExpenseStatusEnum('status').notNull().default('RECORDED'),
+  },
+  (table) => [
+    uniqueIndex('commercial_expenses_code_uq').on(table.code),
+    index('commercial_expenses_order_status_idx').on(table.orderId, table.status, table.incurredAt),
+    check('commercial_expenses_amount_ck', sql`${table.amount} > 0`),
+    check(
+      'commercial_expenses_description_ck',
+      sql`length(trim(${table.description})) between 3 and 1000`,
+    ),
+  ],
+);
+
+export const commercialDocuments = pgTable(
+  'commercial_documents',
+  {
+    acceptanceCertificateId: uuid('acceptance_certificate_id').references(
+      () => acceptanceCertificates.id,
+      { onDelete: 'restrict' },
+    ),
+    checksumSha256: varchar('checksum_sha256', { length: 64 }).notNull(),
+    code: varchar('code', { length: 30 }).notNull(),
+    content: text('content').notNull(),
+    contractId: uuid('contract_id').references(() => commercialContracts.id, {
+      onDelete: 'restrict',
+    }),
+    createdAt,
+    createdByUserId: uuid('created_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    id: uuid('id').primaryKey().defaultRandom(),
+    kind: commercialDocumentKindEnum('kind').notNull(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'restrict' }),
+    paymentId: uuid('payment_id').references(() => commercialPayments.id, {
+      onDelete: 'restrict',
+    }),
+    quotationId: uuid('quotation_id').references(() => commercialQuotations.id, {
+      onDelete: 'restrict',
+    }),
+    storageProvider: varchar('storage_provider', { length: 30 })
+      .notNull()
+      .default('INTERNAL_DATABASE'),
+  },
+  (table) => [
+    uniqueIndex('commercial_documents_code_uq').on(table.code),
+    index('commercial_documents_order_kind_idx').on(table.orderId, table.kind, table.createdAt),
+    check('commercial_documents_checksum_ck', sql`${table.checksumSha256} ~ '^[0-9a-f]{64}$'`),
+    check('commercial_documents_content_ck', sql`length(${table.content}) between 20 and 20000`),
+    check('commercial_documents_storage_ck', sql`${table.storageProvider} = 'INTERNAL_DATABASE'`),
+    check(
+      'commercial_documents_single_source_ck',
+      sql`num_nonnulls(${table.quotationId}, ${table.contractId}, ${table.acceptanceCertificateId}, ${table.paymentId}) = 1`,
+    ),
   ],
 );
 

@@ -4,7 +4,7 @@ Telegram-first order portfolio and service-management platform for a Mahalla
 Service Company (MCK).
 
 The repository is delivered checkpoint by checkpoint. CP-00 through CP-08.1 are approved. CP-09
-contracts, documents and finance foundation is next.
+contracts, documents and finance foundation is in progress.
 
 ## Prerequisites
 

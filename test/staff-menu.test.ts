@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   referencesFromText,
   requestActions,
+  staffFinanceMenu,
   staffAccessActions,
   staffAccessListMenu,
   staffMenuActionForText,
@@ -15,7 +16,26 @@ describe('staff Telegram menu', () => {
     expect(staffMenuActionForText('🌐 Til')).toBe('language');
     expect(staffMenuActionForText('🌐 Язык')).toBe('language');
     expect(staffMenuActionForText('👥 Xodimlar')).toBe('staff');
+    expect(staffMenuActionForText('💰 Moliya')).toBe('finance');
+    expect(staffMenuActionForText('💰 Финансы')).toBe('finance');
     expect(staffMenuActionForText('unknown')).toBeUndefined();
+  });
+
+  it('offers bilingual guided commercial actions without raw command buttons', () => {
+    const callbacks = staffFinanceMenu('uz')
+      .inline_keyboard.flat()
+      .map((button) => ('callback_data' in button ? button.callback_data : undefined));
+    expect(callbacks).toEqual([
+      'finance:summary',
+      'finance:configure',
+      'finance:quote',
+      'finance:acceptquote',
+      'finance:contract',
+      'finance:certificate',
+      'finance:payment',
+      'finance:expense',
+      'finance:document',
+    ]);
   });
 
   it('provides add, suspend and restore staff controls without Telegram IDs in callbacks', () => {

@@ -4,6 +4,7 @@ import type { BotLanguage } from '../../application/localization/bot-language.js
 
 export type StaffMenuAction =
   | 'complaints'
+  | 'finance'
   | 'help'
   | 'language'
   | 'mine'
@@ -17,6 +18,7 @@ export type StaffMenuAction =
 const labels: Readonly<Record<BotLanguage, Readonly<Record<StaffMenuAction, string>>>> = {
   ru: {
     complaints: '📝 Жалобы',
+    finance: '💰 Финансы',
     help: 'ℹ️ Помощь',
     language: '🌐 Язык',
     mine: '🧰 Мои работы',
@@ -29,6 +31,7 @@ const labels: Readonly<Record<BotLanguage, Readonly<Record<StaffMenuAction, stri
   },
   uz: {
     complaints: '📝 Shikoyatlar',
+    finance: '💰 Moliya',
     help: 'ℹ️ Yordam',
     language: '🌐 Til',
     mine: '🧰 Mening ishlarim',
@@ -60,12 +63,14 @@ export function staffMainMenu(language: BotLanguage): Keyboard {
     .text(value.complaints)
     .row()
     .text(value.reports)
+    .text(value.finance)
+    .row()
     .text(value.pdca)
-    .row()
     .text(value.notifications)
-    .text(value.language)
     .row()
+    .text(value.language)
     .text(value.staff)
+    .row()
     .text(value.help)
     .resized()
     .persistent();
@@ -84,8 +89,27 @@ export function staffReportMenu(language: BotLanguage): InlineKeyboard {
     .text(language === 'ru' ? 'CSV за месяц' : 'Oylik CSV', 'reportcsv:month');
 }
 
+export function staffFinanceMenu(language: BotLanguage): InlineKeyboard {
+  const name = (uz: string, ru: string): string => (language === 'ru' ? ru : uz);
+  return new InlineKeyboard()
+    .text(name('📊 Buyurtma moliyasi', '📊 Финансы заказа'), 'finance:summary')
+    .row()
+    .text(name('⚙️ Rejimni sozlash', '⚙️ Настроить режим'), 'finance:configure')
+    .text(name('🧾 Narx taklifi', '🧾 Предложение'), 'finance:quote')
+    .row()
+    .text(name('✅ Taklifni tasdiqlash', '✅ Принять предложение'), 'finance:acceptquote')
+    .text(name('📄 Shartnoma', '📄 Договор'), 'finance:contract')
+    .row()
+    .text(name('📝 Qabul dalolatnomasi', '📝 Акт приёмки'), 'finance:certificate')
+    .row()
+    .text(name('💵 To‘lov', '💵 Оплата'), 'finance:payment')
+    .text(name('🧮 Xarajat', '🧮 Расход'), 'finance:expense')
+    .row()
+    .text(name('📥 Hujjatni olish', '📥 Получить документ'), 'finance:document');
+}
+
 export function staffEntityMenu(
-  kind: 'complaint' | 'notification' | 'order' | 'pdca' | 'request' | 'staff',
+  kind: 'complaint' | 'document' | 'notification' | 'order' | 'pdca' | 'request' | 'staff',
   references: readonly string[],
 ): InlineKeyboard | undefined {
   if (references.length === 0) return undefined;

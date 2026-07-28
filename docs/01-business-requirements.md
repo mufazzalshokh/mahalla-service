@@ -52,6 +52,24 @@ informed.
 - **BR-018:** Let an operator or resident accept completed work or require rework.
 - **BR-019:** Capture a 1–5 rating, optional comment and complaint.
 
+### Commercial records and documents
+
+- **BR-025:** Classify an order as no-charge or fixed-price and preserve its configured revenue
+  source.
+- **BR-026:** Issue an auditable fixed-price quotation in whole UZS with labor, material and other
+  components, a scope, validity date and explicit customer-approval reference.
+- **BR-027:** Record a reference to an externally executed contract without claiming to create an
+  electronic signature or legally binding digital contract.
+- **BR-028:** Generate an acceptance-certificate record only after operational acceptance and order
+  completion, and enforce a required contract reference where configured.
+- **BR-029:** Record manual confirmed payments and expenses with dates, classifications and evidence
+  references; a payment must not exceed the accepted quotation total.
+- **BR-030:** Calculate agreed revenue, collection, recorded expense, outstanding amount and
+  operational gross margin using exact integer money. Do not label this tax, net-profit or statutory
+  accounting output.
+- **BR-031:** Store generated pilot text documents immutably with a SHA-256 checksum and area-scoped
+  access. External payment and document-storage providers remain disabled.
+
 ### Communication and operation
 
 - **BR-020:** Notify a resident of material status changes through reliable,
@@ -125,8 +143,8 @@ These are internal, configurable targets—not contractual promises:
 
 - online payments;
 - legally binding electronic contracts or signatures;
-- accounting and profitability automation;
-- organizational and grant contract management;
+- statutory accounting, tax and net-profit automation;
+- multi-organization and grant contract administration beyond revenue-source classification;
 - warranty automation beyond a basic complaint/rework link;
 - advanced visual/immutable KPI dashboards and automated PDCA recommendations (basic Telegram/CSV
   reporting and auditable manual PDCA are implemented in CP-08);

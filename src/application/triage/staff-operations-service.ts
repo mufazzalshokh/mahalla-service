@@ -24,6 +24,14 @@ import { formatTashkentDateTime } from '../../domain/shared/tashkent-date-time.j
 import type { BotLanguage } from '../localization/bot-language.js';
 import { staffMessage, staffStatus } from './staff-messages.js';
 import type { ManagedStaffRole, StaffAccessService } from '../identity/staff-access-service.js';
+import type { CommercialService } from '../commercial/commercial-service.js';
+import type {
+  BillingType,
+  ExpenseCategory,
+  PaymentMethod,
+  RevenueSourceCode,
+} from '../../domain/commercial/commercial-policy.js';
+import { formatBasisPoints, formatUzs } from '../../domain/commercial/commercial-policy.js';
 
 export interface StaffDocumentResult {
   readonly caption: string;
@@ -55,6 +63,56 @@ export type StaffOperationCommand =
     }
   | { readonly code: string; readonly kind: 'staff-suspend'; readonly reason: string }
   | { readonly code: string; readonly kind: 'staff-restore' }
+  | {
+      readonly billingType: BillingType;
+      readonly contractRequired: boolean;
+      readonly kind: 'commercial-configure';
+      readonly orderNumber: string;
+      readonly revenueSourceCode: RevenueSourceCode;
+    }
+  | {
+      readonly kind: 'quotation-issue';
+      readonly laborAmount: bigint;
+      readonly materialAmount: bigint;
+      readonly orderNumber: string;
+      readonly otherAmount: bigint;
+      readonly scope: string;
+      readonly validUntil: Date;
+    }
+  | {
+      readonly approvalReference: string;
+      readonly kind: 'quotation-accept';
+      readonly quotationCode: string;
+    }
+  | {
+      readonly externalReference: string;
+      readonly kind: 'contract-record';
+      readonly orderNumber: string;
+      readonly termsSummary: string;
+    }
+  | {
+      readonly kind: 'acceptance-certificate';
+      readonly orderNumber: string;
+      readonly summary: string;
+    }
+  | {
+      readonly amount: bigint;
+      readonly kind: 'payment-record';
+      readonly method: PaymentMethod;
+      readonly orderNumber: string;
+      readonly paidAt: Date;
+      readonly proofReference: string;
+    }
+  | {
+      readonly amount: bigint;
+      readonly category: ExpenseCategory;
+      readonly description: string;
+      readonly incurredAt: Date;
+      readonly kind: 'expense-record';
+      readonly orderNumber: string;
+    }
+  | { readonly kind: 'finance-summary'; readonly orderNumber: string }
+  | { readonly code: string; readonly kind: 'commercial-document' }
   | { readonly kind: 'validate'; readonly ticketNumber: string }
   | { readonly kind: 'information'; readonly question: string; readonly ticketNumber: string }
   | {
@@ -140,6 +198,7 @@ export type StaffOperationCommand =
 
 export interface StaffOperationDependencies {
   readonly assessPriority: AssessPriorityService;
+  readonly commercial: CommercialService;
   readonly decideDuplicate: DecideDuplicateService;
   readonly execution: ExecutionService;
   readonly listQueue: ListValidationQueueService;
@@ -199,6 +258,142 @@ export class StaffOperationsService implements StaffOperations {
             return `${record.code} — ${record.displayName} — ${role} — ${status} — ${record.serviceAreaCode} — TG ${record.telegramUserId}`;
           })
           .join('\n');
+      }
+      case 'commercial-configure': {
+        const configured = await this.dependencies.commercial.configure(
+          command.orderNumber,
+          command,
+          principal,
+        );
+        return language === 'ru'
+          ? `${command.orderNumber}: коммерческий режим сохранён — ${configured.billingType}, источник ${configured.revenueSourceCode}.`
+          : `${command.orderNumber}: tijorat rejimi saqlandi — ${configured.billingType}, manba ${configured.revenueSourceCode}.`;
+      }
+      case 'quotation-issue': {
+        const result = await this.dependencies.commercial.issueQuotation(
+          command.orderNumber,
+          command,
+          principal,
+        );
+        return language === 'ru'
+          ? `${result.quotation.code}: предложение создано на ${formatUzs(result.quotation.totalAmount)}. Документ: ${result.document.code}.`
+          : `${result.quotation.code}: ${formatUzs(result.quotation.totalAmount)} narx taklifi yaratildi. Hujjat: ${result.document.code}.`;
+      }
+      case 'quotation-accept': {
+        const accepted = await this.dependencies.commercial.acceptQuotation(
+          command.quotationCode,
+          command.approvalReference,
+          principal,
+        );
+        return language === 'ru'
+          ? `${accepted.code}: согласие клиента зафиксировано.`
+          : `${accepted.code}: mijoz roziligi qayd etildi.`;
+      }
+      case 'contract-record': {
+        const result = await this.dependencies.commercial.recordContract(
+          command.orderNumber,
+          command.externalReference,
+          command.termsSummary,
+          principal,
+        );
+        return language === 'ru'
+          ? `${result.contract.code}: ссылка на договор сохранена. Документ: ${result.document.code}.`
+          : `${result.contract.code}: shartnoma ma’lumoti saqlandi. Hujjat: ${result.document.code}.`;
+      }
+      case 'acceptance-certificate': {
+        const result = await this.dependencies.commercial.issueAcceptanceCertificate(
+          command.orderNumber,
+          command.summary,
+          principal,
+        );
+        return language === 'ru'
+          ? `${result.certificate.code}: акт приёмки создан. Документ: ${result.document.code}.`
+          : `${result.certificate.code}: qabul dalolatnomasi yaratildi. Hujjat: ${result.document.code}.`;
+      }
+      case 'payment-record': {
+        const result = await this.dependencies.commercial.recordPayment(
+          command.orderNumber,
+          command,
+          principal,
+        );
+        return language === 'ru'
+          ? `${result.payment.code}: оплата ${formatUzs(result.payment.amount)} записана. Документ: ${result.document.code}.`
+          : `${result.payment.code}: ${formatUzs(result.payment.amount)} to‘lov qayd etildi. Hujjat: ${result.document.code}.`;
+      }
+      case 'expense-record': {
+        const recorded = await this.dependencies.commercial.recordExpense(
+          command.orderNumber,
+          command,
+          principal,
+        );
+        return language === 'ru'
+          ? `${recorded.code}: расход ${formatUzs(recorded.amount)} записан.`
+          : `${recorded.code}: ${formatUzs(recorded.amount)} xarajat qayd etildi.`;
+      }
+      case 'finance-summary': {
+        const summary = await this.dependencies.commercial.summary(command.orderNumber, principal);
+        if (!summary.profile) {
+          return language === 'ru'
+            ? `${command.orderNumber}: коммерческий режим ещё не настроен.`
+            : `${command.orderNumber}: tijorat rejimi hali sozlanmagan.`;
+        }
+        const totals = summary.totals;
+        const money = (value: bigint | null): string => (value === null ? '—' : formatUzs(value));
+        const lines =
+          language === 'ru'
+            ? [
+                `Финансы: ${command.orderNumber}`,
+                `Режим: ${summary.profile.billingType}; источник: ${summary.profile.revenueSourceCode}`,
+                `Предложение: ${summary.quotation?.code ?? '—'} (${summary.quotation?.status ?? '—'})`,
+                `Договор: ${summary.contract?.code ?? '—'}`,
+                `Согласованная выручка: ${money(totals.agreedRevenue)}`,
+                `Получено: ${formatUzs(totals.collectedAmount)} (${formatBasisPoints(totals.collectionRateBasisPoints)})`,
+                `Расходы: ${formatUzs(totals.expenseAmount)}`,
+                `Валовая маржа: ${money(totals.grossMargin)} (${formatBasisPoints(totals.grossMarginRateBasisPoints)})`,
+                `Остаток к оплате: ${money(totals.outstandingAmount)}`,
+              ]
+            : [
+                `Moliya: ${command.orderNumber}`,
+                `Rejim: ${summary.profile.billingType}; manba: ${summary.profile.revenueSourceCode}`,
+                `Taklif: ${summary.quotation?.code ?? '—'} (${summary.quotation?.status ?? '—'})`,
+                `Shartnoma: ${summary.contract?.code ?? '—'}`,
+                `Kelishilgan tushum: ${money(totals.agreedRevenue)}`,
+                `Undirildi: ${formatUzs(totals.collectedAmount)} (${formatBasisPoints(totals.collectionRateBasisPoints)})`,
+                `Xarajat: ${formatUzs(totals.expenseAmount)}`,
+                `Yalpi marja: ${money(totals.grossMargin)} (${formatBasisPoints(totals.grossMarginRateBasisPoints)})`,
+                `To‘lanishi qolgan: ${money(totals.outstandingAmount)}`,
+              ];
+        if (summary.certificateCodes.length > 0)
+          lines.push(
+            `${language === 'ru' ? 'Акты' : 'Dalolatnomalar'}: ${summary.certificateCodes.join(', ')}`,
+          );
+        if (summary.paymentCodes.length > 0)
+          lines.push(
+            `${language === 'ru' ? 'Платежи' : 'To‘lovlar'}: ${summary.paymentCodes.join(', ')}`,
+          );
+        if (summary.expenseCodes.length > 0)
+          lines.push(
+            `${language === 'ru' ? 'Расходы' : 'Xarajatlar'}: ${summary.expenseCodes.join(', ')}`,
+          );
+        if (summary.documentCodes.length > 0)
+          lines.push(
+            `${language === 'ru' ? 'Документы' : 'Hujjatlar'}: ${summary.documentCodes.join(', ')}`,
+          );
+        lines.push(
+          language === 'ru'
+            ? 'Показатели операционные, не налоговая или бухгалтерская отчётность.'
+            : 'Ko‘rsatkichlar operatsion, soliq yoki buxgalteriya hisoboti emas.',
+        );
+        return lines.join('\n');
+      }
+      case 'commercial-document': {
+        const document = await this.dependencies.commercial.document(command.code, principal);
+        return {
+          caption: `${document.code} — SHA-256 ${document.checksumSha256.slice(0, 12)}…`,
+          content: document.content,
+          fileName: `${document.code.toLowerCase()}.txt`,
+          kind: 'document',
+        };
       }
       case 'staff-grant': {
         const record = await this.dependencies.staffAccess.grant(

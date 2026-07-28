@@ -5,7 +5,8 @@ This directory is the source of truth for the incremental Mahalla Service Compan
 
 ## Current checkpoint
 
-CP-00 through CP-08.1 are approved. CP-09 contracts, documents and finance foundation is next.
+CP-00 through CP-08.1 are approved. CP-09 contracts, documents and finance foundation is in
+progress.
 
 ## Documents
 
@@ -30,12 +31,14 @@ CP-00 through CP-08.1 are approved. CP-09 contracts, documents and finance found
 - [Quality and complaints](architecture/quality-and-complaints.md)
 - [Notifications and operational automation](architecture/notifications-and-automation.md)
 - [Operational reporting and PDCA](architecture/reporting-and-pdca.md)
+- [Commercial records and documents](architecture/commercial-and-documents.md)
 - [Pilot deployment](architecture/deployment.md)
 - [Testing strategy](testing-strategy.md)
 - [Local development runbook](runbooks/local-development.md)
 - [Database migration runbook](runbooks/database-migrations.md)
 - [Resident bot runbook](runbooks/resident-bot.md)
 - [Staff bot runbook](runbooks/staff-bot.md)
+- [Commercial staff-bot runbook](runbooks/commercial-bot.md)
 - [Version control and checkpoint publishing](runbooks/version-control.md)
 - [Telegram intake threat model](security/threat-model.md)
 - [Provisional privacy and retention](security/privacy-and-retention.md)
@@ -48,6 +51,7 @@ CP-00 through CP-08.1 are approved. CP-09 contracts, documents and finance found
 - [ADR-0007: Pilot quality and complaint control](adr/ADR-0007-pilot-quality-and-complaint-control.md)
 - [ADR-0008: PostgreSQL outbox and in-process automation](adr/ADR-0008-postgresql-outbox-and-in-process-automation.md)
 - [ADR-0009: Live operational reporting and audited PDCA](adr/ADR-0009-live-operational-reporting-and-audited-pdca.md)
+- [ADR-0010: Manual commercial ledger and immutable text documents](adr/ADR-0010-manual-commercial-ledger-and-immutable-text-documents.md)
 - [CP-00 checkpoint record](checkpoints/CP-00-discovery.md)
 - [CP-01 checkpoint record](checkpoints/CP-01-engineering-foundation.md)
 - [CP-02 checkpoint record](checkpoints/CP-02-domain-model-and-persistence.md)
@@ -58,6 +62,7 @@ CP-00 through CP-08.1 are approved. CP-09 contracts, documents and finance found
 - [CP-07 checkpoint record](checkpoints/CP-07-notifications-and-operational-automation.md)
 - [CP-08 checkpoint record](checkpoints/CP-08-kpi-portfolio-reporting-and-pdca.md)
 - [CP-08.1 checkpoint record](checkpoints/CP-08.1-bilingual-button-telegram-ux.md)
+- [CP-09 checkpoint record](checkpoints/CP-09-contracts-documents-and-finance-foundation.md)
 
 ## Evidence hierarchy
 

@@ -13,6 +13,7 @@ import { NotificationService } from './application/notifications/notification-se
 import { OperationalAutomation } from './application/automation/operational-automation.js';
 import { ReportingService } from './application/reporting/reporting-service.js';
 import { PdcaService } from './application/pdca/pdca-service.js';
+import { CommercialService } from './application/commercial/commercial-service.js';
 import {
   AssessPriorityService,
   DecideDuplicateService,
@@ -39,6 +40,7 @@ import { PostgresNotificationRepository } from './infrastructure/notifications/p
 import { PostgresAutomationRepository } from './infrastructure/automation/postgres-automation-repository.js';
 import { PostgresReportingRepository } from './infrastructure/reporting/postgres-reporting-repository.js';
 import { PostgresPdcaRepository } from './infrastructure/pdca/postgres-pdca-repository.js';
+import { PostgresCommercialRepository } from './infrastructure/commercial/postgres-commercial-repository.js';
 import { buildApp } from './interfaces/http/build-app.js';
 import { createResidentBot } from './interfaces/telegram/resident-bot.js';
 import { createStaffBot } from './interfaces/telegram/staff-bot.js';
@@ -127,6 +129,7 @@ async function start(): Promise<void> {
       },
       operations: new StaffOperationsService({
         assessPriority: new AssessPriorityService(triageRepository),
+        commercial: new CommercialService(new PostgresCommercialRepository(applicationDatabase.db)),
         decideDuplicate: new DecideDuplicateService(triageRepository),
         execution: new ExecutionService(executionRepository, transitionOrder),
         listQueue: new ListValidationQueueService(triageRepository),

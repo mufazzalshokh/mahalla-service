@@ -8,6 +8,7 @@ import {
   priorityModels,
   qualityChecklistItems,
   qualityChecklistTemplates,
+  revenueSources,
   requestSources,
   rolePermissions,
   roles,
@@ -43,6 +44,9 @@ const rolePermissionMap: Readonly<Record<string, readonly PermissionKey[]>> = {
     'notification.manage',
     'report.read',
     'report.export',
+    'finance.read',
+    'finance.manage',
+    'document.read',
     'pdca.manage',
     'quality.inspect',
     'quality.accept',
@@ -186,6 +190,33 @@ export async function seedFoundation(database: MckDatabase): Promise<void> {
       .onConflictDoUpdate({
         set: { confidenceScore: sql`excluded.confidence_score` },
         target: requestSources.code,
+      });
+
+    await tx
+      .insert(revenueSources)
+      .values([
+        { code: 'RESIDENT', nameRu: 'Житель', nameUzLatn: "Aholi to'lovi" },
+        { code: 'ORGANIZATION', nameRu: 'Организация', nameUzLatn: 'Tashkilot' },
+        { code: 'GRANT', nameRu: 'Грант', nameUzLatn: 'Grant' },
+        {
+          code: 'SOCIAL_FUNDING',
+          nameRu: 'Социальное финансирование',
+          nameUzLatn: "Ijtimoiy mablag'",
+        },
+        {
+          code: 'ADDITIONAL_SERVICE',
+          nameRu: 'Дополнительная услуга',
+          nameUzLatn: "Qo'shimcha xizmat",
+        },
+      ])
+      .onConflictDoUpdate({
+        set: {
+          isActive: true,
+          nameRu: sql`excluded.name_ru`,
+          nameUzLatn: sql`excluded.name_uz_latn`,
+          updatedAt: sql`now()`,
+        },
+        target: revenueSources.code,
       });
 
     await tx

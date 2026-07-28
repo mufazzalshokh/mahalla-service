@@ -73,5 +73,6 @@ history plus audit in the same transaction.
 
 The pilot performs parameterized aggregate queries on the existing PostgreSQL database. It adds no
 paid analytics product. Introduce cached/materialized reports only after measured latency or a paid
-requirement for immutable period close. Financial revenue, expense, margin, and profitability are
-deliberately absent until CP-09.
+requirement for immutable period close. CP-09 provides order-level operational commercial totals;
+they remain outside the weekly/monthly KPI report until finance owners approve period recognition
+and close rules.

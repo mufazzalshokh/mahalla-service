@@ -39,6 +39,10 @@ Protected assets are bot tokens, Telegram identifiers, phone numbers, addresses/
 | CSV value executes as a spreadsheet formula                         | cells beginning with `=`, `+`, `-`, or `@` are prefixed; quotes/newlines are normalized                              | spreadsheet software and downstream transformations still require care        |
 | KPI wording is mistaken for financial/contractual truth             | formulas/timezone/denominators are documented; SLA is internal and profitability is excluded                         | buyer approval is required before external commitments                        |
 | PDCA history is rewritten or two managers overwrite each other      | append-only history/audit, optimistic action version, database constraints, and transaction tests                    | audit access and retention policy remain operational responsibilities         |
+| Staff records finance for an order outside their service area       | separate scoped `finance.read`/`finance.manage` permissions enforced by the application service                      | dedicated finance role can be introduced after the first paid pilot           |
+| Payment exceeds agreed price or uses imprecise arithmetic           | accepted-quotation prerequisite, transaction lock, overpayment rejection and whole-UZS bigint arithmetic             | refunds, discounts, tax and multi-currency require approved future rules      |
+| Manual record is mistaken for a fiscal receipt or signed contract   | bilingual non-fiscal/non-signing notices, evidence references and no provider-success or signature claim             | legal/finance review is required before real paid records                     |
+| Generated commercial document is changed after sharing              | immutable database trigger, stored SHA-256, scoped document permission and tamper integration test                   | off-host archival and signed binaries require funded private object storage   |
 
 ## Abuse and privacy defaults
 
