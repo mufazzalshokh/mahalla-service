@@ -39,11 +39,11 @@ monitoring remain deliberately excluded.
 - Production Compose resolves with immutable dummy release/image digests and external secret mounts:
   PASS.
 - Bash deployment/backup/monitor syntax, Node smoke syntax and loopback release smoke: PASS.
-- A complete local PostgreSQL rerun initially reached 30/35 tests; five old fixtures depended on the
-  wall clock crossing 28 July 2026 and were converted to relative dates. The clean rerun and runtime
-  image pull are delegated to the mandatory GitHub CI gate because Docker Hub repeatedly returned TLS
-  handshake timeouts locally and the installed Windows service could not be started without host
-  administrator access.
+- A complete local PostgreSQL rerun exposed old fixtures that depended on the wall clock crossing 28
+  July 2026; they were converted to relative dates. The clean rerun and runtime image pull are
+  delegated to the mandatory GitHub CI gate because Docker Hub repeatedly returned TLS handshake
+  timeouts locally and the installed Windows service could not be started without host administrator
+  access.
 
 ## 5. Safety and privacy
 

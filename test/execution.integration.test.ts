@@ -35,6 +35,9 @@ import { PostgresExecutorEligibility } from '../src/infrastructure/orders/postgr
 import { PostgresOrderRepository } from '../src/infrastructure/orders/postgres-order-repository.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
+const assignmentNow = new Date(Date.now() + 60_000);
+const assignmentDueAt = new Date(assignmentNow.getTime() + 3_600_000);
+const overdueScanNow = new Date(assignmentDueAt.getTime() + 3_600_000);
 
 describe.runIf(Boolean(databaseUrl))('CP-05 assignment and execution persistence', () => {
   let client: DatabaseClient;
@@ -119,9 +122,9 @@ describe.runIf(Boolean(databaseUrl))('CP-05 assignment and execution persistence
       new TransitionOrderService(
         new PostgresOrderRepository(client.db),
         new PostgresExecutorEligibility(client.db),
-        () => new Date('2026-07-27T10:00:00Z'),
+        () => assignmentNow,
       ),
-      () => new Date('2026-07-29T10:00:00Z'),
+      () => overdueScanNow,
     );
   }, 60_000);
 
@@ -146,7 +149,7 @@ describe.runIf(Boolean(databaseUrl))('CP-05 assignment and execution persistence
 
   it('persists the complete executor lifecycle, evidence, SLA and audit', async () => {
     const order = await createOrder();
-    const dueAt = new Date('2026-07-28T18:00:00Z');
+    const dueAt = assignmentDueAt;
     await service.assign(order.orderNumber, executorCode, dueAt, operator);
     await service.addEvidence(
       order.orderNumber,
@@ -243,12 +246,7 @@ describe.runIf(Boolean(databaseUrl))('CP-05 assignment and execution persistence
 
   it('preserves a declined assignment and returns the order for reassignment', async () => {
     const order = await createOrder();
-    await service.assign(
-      order.orderNumber,
-      executorCode,
-      new Date('2026-07-28T18:00:00Z'),
-      operator,
-    );
+    await service.assign(order.orderNumber, executorCode, assignmentDueAt, operator);
     const returned = await service.transition(
       order.orderNumber,
       'REGISTERED',
@@ -269,7 +267,7 @@ describe.runIf(Boolean(databaseUrl))('CP-05 assignment and execution persistence
 
   it('serializes concurrent assignment to one active assignment', async () => {
     const order = await createOrder();
-    const dueAt = new Date('2026-07-28T18:00:00Z');
+    const dueAt = assignmentDueAt;
     const outcomes = await Promise.allSettled([
       service.assign(order.orderNumber, executorCode, dueAt, operator),
       service.assign(order.orderNumber, executorCode, dueAt, operator),
@@ -282,12 +280,7 @@ describe.runIf(Boolean(databaseUrl))('CP-05 assignment and execution persistence
 
   it('creates one idempotent overdue escalation with audit evidence', async () => {
     const order = await createOrder();
-    await service.assign(
-      order.orderNumber,
-      executorCode,
-      new Date('2026-07-28T18:00:00Z'),
-      operator,
-    );
+    await service.assign(order.orderNumber, executorCode, assignmentDueAt, operator);
     const first = await service.scanOverdue(operator);
     const second = await service.scanOverdue(operator);
     expect(first.map(({ orderNumber }) => orderNumber)).toContain(order.orderNumber);
