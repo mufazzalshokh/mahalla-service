@@ -48,4 +48,8 @@ Protected assets are bot tokens, Telegram identifiers, phone numbers, addresses/
 - Audit records ticket/status/source facts without duplicating resident content.
 - Resident-declared urgency does not set final priority or bypass area-scoped staff triage.
 - Preferred visit hours are stored as coordination preferences, not guaranteed capacity bookings.
+- Possessing the staff-bot link or learning a Telegram ID grants no access. Only an existing
+  area-scoped `staff.manage` administrator can grant controlled operator/executor roles.
+- Administrator grants are unavailable through the bot; self-suspension is blocked, and staff
+  suspension removes the managed role without disabling resident ownership access.
 - No legal compliance is claimed; draft consent and retention defaults require owner review before real-data pilot use.

@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   referencesFromText,
   requestActions,
+  staffAccessActions,
+  staffAccessListMenu,
   staffMenuActionForText,
 } from '../src/interfaces/telegram/staff-menu.js';
 
@@ -12,7 +14,21 @@ describe('staff Telegram menu', () => {
     expect(staffMenuActionForText('📥 Заявки')).toBe('queue');
     expect(staffMenuActionForText('🌐 Til')).toBe('language');
     expect(staffMenuActionForText('🌐 Язык')).toBe('language');
+    expect(staffMenuActionForText('👥 Xodimlar')).toBe('staff');
     expect(staffMenuActionForText('unknown')).toBeUndefined();
+  });
+
+  it('provides add, suspend and restore staff controls without Telegram IDs in callbacks', () => {
+    expect(staffAccessListMenu(['STF-2026-00000001'], 'uz').inline_keyboard).toEqual([
+      [{ callback_data: 'staff:add', text: '➕ Xodim qo‘shish' }],
+      [{ callback_data: 'entity:staff:STF-2026-00000001', text: 'STF-2026-00000001' }],
+    ]);
+    expect(staffAccessActions('STF-2026-00000001', 'ru').inline_keyboard.flat()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ callback_data: 'prompt:suspendstaff:STF-2026-00000001' }),
+        expect.objectContaining({ callback_data: 'action:restorestaff:STF-2026-00000001' }),
+      ]),
+    );
   });
 
   it('extracts only bounded generated references and removes duplicates', () => {

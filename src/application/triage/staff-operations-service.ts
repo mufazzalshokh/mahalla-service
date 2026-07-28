@@ -23,6 +23,7 @@ import type { PdcaService } from '../pdca/pdca-service.js';
 import { formatTashkentDateTime } from '../../domain/shared/tashkent-date-time.js';
 import type { BotLanguage } from '../localization/bot-language.js';
 import { staffMessage, staffStatus } from './staff-messages.js';
+import type { ManagedStaffRole, StaffAccessService } from '../identity/staff-access-service.js';
 
 export interface StaffDocumentResult {
   readonly caption: string;
@@ -44,6 +45,16 @@ export interface StaffOperations {
 export type StaffOperationCommand =
   | { readonly kind: 'queue' }
   | { readonly kind: 'request-details'; readonly ticketNumber: string }
+  | { readonly kind: 'staff-list' }
+  | {
+      readonly areaCode: string;
+      readonly displayName: string;
+      readonly kind: 'staff-grant';
+      readonly role: ManagedStaffRole;
+      readonly telegramUserId: bigint;
+    }
+  | { readonly code: string; readonly kind: 'staff-suspend'; readonly reason: string }
+  | { readonly code: string; readonly kind: 'staff-restore' }
   | { readonly kind: 'validate'; readonly ticketNumber: string }
   | { readonly kind: 'information'; readonly question: string; readonly ticketNumber: string }
   | {
@@ -140,6 +151,7 @@ export interface StaffOperationDependencies {
   readonly reporting: ReportingService;
   readonly registerRequest: RegisterRequestAsOrderService;
   readonly suggestDuplicates: SuggestDuplicatesService;
+  readonly staffAccess: StaffAccessService;
   readonly transitionRequest: TransitionRequestService;
 }
 
@@ -160,6 +172,61 @@ export class StaffOperationsService implements StaffOperations {
         return requests
           .map(({ status, ticketNumber }) => `${ticketNumber} — ${staffStatus(language, status)}`)
           .join('\n');
+      }
+      case 'staff-list': {
+        const records = await this.dependencies.staffAccess.list(principal);
+        if (records.length === 0) {
+          return language === 'ru' ? 'Управляемых сотрудников нет.' : 'Boshqariladigan xodim yo‘q.';
+        }
+        return records
+          .map((record) => {
+            const role =
+              record.role === 'operator_manager'
+                ? language === 'ru'
+                  ? 'оператор-менеджер'
+                  : 'operator-menejer'
+                : language === 'ru'
+                  ? 'исполнитель'
+                  : 'ijrochi';
+            const status =
+              record.status === 'ACTIVE'
+                ? language === 'ru'
+                  ? 'активен'
+                  : 'faol'
+                : language === 'ru'
+                  ? 'приостановлен'
+                  : 'to‘xtatilgan';
+            return `${record.code} — ${record.displayName} — ${role} — ${status} — ${record.serviceAreaCode} — TG ${record.telegramUserId}`;
+          })
+          .join('\n');
+      }
+      case 'staff-grant': {
+        const record = await this.dependencies.staffAccess.grant(
+          command.telegramUserId,
+          command.displayName,
+          command.role,
+          command.areaCode,
+          principal,
+        );
+        return language === 'ru'
+          ? `${record.code}: доступ сотрудника выдан (${record.displayName}).`
+          : `${record.code}: xodimga kirish berildi (${record.displayName}).`;
+      }
+      case 'staff-suspend': {
+        const record = await this.dependencies.staffAccess.suspend(
+          command.code,
+          command.reason,
+          principal,
+        );
+        return language === 'ru'
+          ? `${record.code}: доступ приостановлен.`
+          : `${record.code}: kirish to‘xtatildi.`;
+      }
+      case 'staff-restore': {
+        const record = await this.dependencies.staffAccess.restore(command.code, principal);
+        return language === 'ru'
+          ? `${record.code}: доступ восстановлен.`
+          : `${record.code}: kirish tiklandi.`;
       }
       case 'request-details': {
         const details = await this.dependencies.listQueue.details(command.ticketNumber, principal);

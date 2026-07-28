@@ -27,6 +27,8 @@ import { createDatabaseClient, type DatabaseClient } from './infrastructure/data
 import { createPostgresDependency } from './infrastructure/database/postgres-readiness.js';
 import { PostgresResidentIntakeUnitOfWork } from './infrastructure/intake/postgres-resident-intake-unit-of-work.js';
 import { PostgresPrincipalProvider } from './infrastructure/identity/postgres-principal-provider.js';
+import { StaffAccessService } from './application/identity/staff-access-service.js';
+import { PostgresStaffAccessRepository } from './infrastructure/identity/postgres-staff-access-repository.js';
 import { PostgresExecutionRepository } from './infrastructure/execution/postgres-execution-repository.js';
 import { PostgresExecutorEligibility } from './infrastructure/orders/postgres-executor-eligibility.js';
 import { PostgresOrderRepository } from './infrastructure/orders/postgres-order-repository.js';
@@ -136,6 +138,9 @@ async function start(): Promise<void> {
         registerRequest: new RegisterRequestAsOrderService(triageRepository),
         reporting: new ReportingService(new PostgresReportingRepository(applicationDatabase.db)),
         suggestDuplicates: new SuggestDuplicatesService(triageRepository),
+        staffAccess: new StaffAccessService(
+          new PostgresStaffAccessRepository(applicationDatabase.db),
+        ),
         transitionRequest: new TransitionRequestService(
           new PostgresRequestRepository(applicationDatabase.db),
         ),

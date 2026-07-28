@@ -11,7 +11,8 @@ export type StaffMenuAction =
   | 'overdue'
   | 'pdca'
   | 'queue'
-  | 'reports';
+  | 'reports'
+  | 'staff';
 
 const labels: Readonly<Record<BotLanguage, Readonly<Record<StaffMenuAction, string>>>> = {
   ru: {
@@ -24,6 +25,7 @@ const labels: Readonly<Record<BotLanguage, Readonly<Record<StaffMenuAction, stri
     pdca: '🔄 PDCA',
     queue: '📥 Заявки',
     reports: '📊 Отчёты',
+    staff: '👥 Сотрудники',
   },
   uz: {
     complaints: '📝 Shikoyatlar',
@@ -35,6 +37,7 @@ const labels: Readonly<Record<BotLanguage, Readonly<Record<StaffMenuAction, stri
     pdca: '🔄 PDCA',
     queue: '📥 So‘rovlar',
     reports: '📊 Hisobotlar',
+    staff: '👥 Xodimlar',
   },
 };
 
@@ -62,6 +65,7 @@ export function staffMainMenu(language: BotLanguage): Keyboard {
     .text(value.notifications)
     .text(value.language)
     .row()
+    .text(value.staff)
     .text(value.help)
     .resized()
     .persistent();
@@ -81,13 +85,51 @@ export function staffReportMenu(language: BotLanguage): InlineKeyboard {
 }
 
 export function staffEntityMenu(
-  kind: 'complaint' | 'notification' | 'order' | 'pdca' | 'request',
+  kind: 'complaint' | 'notification' | 'order' | 'pdca' | 'request' | 'staff',
   references: readonly string[],
 ): InlineKeyboard | undefined {
   if (references.length === 0) return undefined;
   const keyboard = new InlineKeyboard();
   references.forEach((reference) => keyboard.text(reference, `entity:${kind}:${reference}`).row());
   return keyboard;
+}
+
+export function staffAccessListMenu(
+  references: readonly string[],
+  language: BotLanguage,
+): InlineKeyboard {
+  const keyboard = new InlineKeyboard().text(
+    language === 'ru' ? '➕ Добавить сотрудника' : '➕ Xodim qo‘shish',
+    'staff:add',
+  );
+  if (references.length > 0) keyboard.row();
+  references.forEach((reference, index) => {
+    keyboard.text(reference, `entity:staff:${reference}`);
+    if (index < references.length - 1) keyboard.row();
+  });
+  return keyboard;
+}
+
+export function staffAccessActions(reference: string, language: BotLanguage): InlineKeyboard {
+  return new InlineKeyboard()
+    .text(
+      language === 'ru' ? '⏸ Приостановить' : '⏸ Kirishni to‘xtatish',
+      `prompt:suspendstaff:${reference}`,
+    )
+    .text(
+      language === 'ru' ? '▶️ Восстановить' : '▶️ Kirishni tiklash',
+      `action:restorestaff:${reference}`,
+    );
+}
+
+export function staffRoleMenu(language: BotLanguage): InlineKeyboard {
+  return new InlineKeyboard()
+    .text(
+      language === 'ru' ? '🧑‍💼 Оператор-менеджер' : '🧑‍💼 Operator-menejer',
+      'staffrole:operator_manager',
+    )
+    .row()
+    .text(language === 'ru' ? '🧰 Исполнитель' : '🧰 Ijrochi', 'staffrole:executor');
 }
 
 export function referencesFromText(text: string, prefix: string): readonly string[] {

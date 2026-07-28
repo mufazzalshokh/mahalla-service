@@ -55,6 +55,42 @@ function createService(): {
 }
 
 describe('staff execution operations', () => {
+  it('dispatches administrator staff-access operations', async () => {
+    const staffAccess = {
+      grant: vi.fn().mockResolvedValue({ code: 'STF-1', displayName: 'Ali' }),
+      list: vi.fn().mockResolvedValue([
+        {
+          code: 'STF-1',
+          displayName: 'Ali',
+          role: 'operator_manager',
+          serviceAreaCode: 'DEMO',
+          status: 'ACTIVE',
+          telegramUserId: 123n,
+        },
+      ]),
+      restore: vi.fn().mockResolvedValue({ code: 'STF-1' }),
+      suspend: vi.fn().mockResolvedValue({ code: 'STF-1' }),
+    };
+    const dependencies = {
+      principals: { loadByTelegramUserId: vi.fn().mockResolvedValue(principal) },
+      staffAccess,
+    } as unknown as StaffOperationDependencies;
+    const service = new StaffOperationsService(dependencies);
+    await expect(service.execute(1n, { kind: 'staff-list' })).resolves.toContain('TG 123');
+    await service.execute(1n, {
+      areaCode: 'DEMO',
+      displayName: 'Ali',
+      kind: 'staff-grant',
+      role: 'operator_manager',
+      telegramUserId: 123n,
+    });
+    await service.execute(1n, { code: 'STF-1', kind: 'staff-suspend', reason: 'Ended' });
+    await service.execute(1n, { code: 'STF-1', kind: 'staff-restore' });
+    expect(staffAccess.grant).toHaveBeenCalledOnce();
+    expect(staffAccess.suspend).toHaveBeenCalledOnce();
+    expect(staffAccess.restore).toHaveBeenCalledOnce();
+  });
+
   it('renders localized resident request details with a simple Tashkent visit window', async () => {
     const dependencies = {
       listQueue: {

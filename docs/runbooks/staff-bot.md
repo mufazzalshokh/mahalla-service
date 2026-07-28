@@ -20,6 +20,24 @@ reports, complaints, notifications, orders and PDCA actions are available as but
 open contextual action buttons. The bot asks for text only when the business record needs a factual
 reason, note, score, deadline or summary.
 
+## Staff onboarding
+
+Anyone may send `/myid` to the staff bot. It returns only that sender's numeric Telegram ID and
+does not create an account or grant access.
+
+An area-scoped administrator uses `👥 Xodimlar / Сотрудники`:
+
+1. Press `➕ Xodim qo‘shish / Добавить сотрудника`.
+2. Enter `Telegram ID | Full name`, using the ID the employee obtained from `/myid`.
+3. Select `operator_manager` or `executor`. The bot cannot grant the `administrator` role.
+4. Confirm the new `STF-YYYY-NNNNNNNN` entry appears as active.
+
+New executors are made available for all active pilot categories so the first-sale workflow works
+without a separate catalog screen. Revisit those capabilities when real specialization data is
+available. Suspend access with a reason when someone leaves; this removes their managed staff role
+without disabling their resident account. Restore uses the recorded role and area. Administrators
+cannot suspend themselves through the bot, and every change is audited.
+
 For a request, press `👁 Tafsilotlar / Подробности` to see the area-authorized full name, phone,
 category, declared urgency, description, address and preferred visit window. Treat the declared
 urgency as resident input; use the normal triage action to establish final operational priority.
@@ -35,6 +53,11 @@ persisted request/order facts.
 ```text
 /queue
 /details TICKET
+/myid
+/staff
+/staffgrant TELEGRAM_ID operator_manager|executor AREA full name
+/staffsuspend STF_CODE reason
+/staffrestore STF_CODE
 /validate TICKET
 /info TICKET question
 /triage TICKET safety urgency affected social

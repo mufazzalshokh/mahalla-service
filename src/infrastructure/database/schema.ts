@@ -32,6 +32,7 @@ const updatedAt = timestamp('updated_at', { mode: 'date', withTimezone: true })
   .defaultNow();
 
 export const userStatusEnum = pgEnum('user_status', ['ACTIVE', 'SUSPENDED', 'DISABLED']);
+export const staffAccessStatusEnum = pgEnum('staff_access_status', ['ACTIVE', 'SUSPENDED']);
 export const requestStatusEnum = pgEnum('request_status', requestStatuses);
 export const orderStatusEnum = pgEnum('order_status', orderStatuses);
 export const priorityBandEnum = pgEnum('priority_band', [
@@ -117,6 +118,7 @@ export const orderPortfolioSequence = pgSequence('order_portfolio_seq', { startW
 export const qualityComplaintSequence = pgSequence('quality_complaint_seq', { startWith: 1 });
 export const notificationSequence = pgSequence('notification_seq', { startWith: 1 });
 export const pdcaActionSequence = pgSequence('pdca_action_seq', { startWith: 1 });
+export const staffProfileSequence = pgSequence('staff_profile_seq', { startWith: 1 });
 
 export const serviceAreas = pgTable(
   'service_areas',
@@ -292,6 +294,34 @@ export const userRoles = pgTable(
       .on(table.userId, table.roleId, table.serviceAreaId)
       .where(sql`${table.serviceAreaId} is not null`),
     index('user_roles_scope_idx').on(table.serviceAreaId, table.userId),
+  ],
+);
+
+export const staffProfiles = pgTable(
+  'staff_profiles',
+  {
+    code: varchar('code', { length: 30 }).notNull(),
+    createdAt,
+    displayName: varchar('display_name', { length: 120 }).notNull(),
+    roleId: uuid('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'restrict' }),
+    serviceAreaId: uuid('service_area_id')
+      .notNull()
+      .references(() => serviceAreas.id, { onDelete: 'restrict' }),
+    status: staffAccessStatusEnum('status').notNull().default('ACTIVE'),
+    updatedAt,
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    uniqueIndex('staff_profiles_code_uq').on(table.code),
+    index('staff_profiles_area_status_idx').on(table.serviceAreaId, table.status, table.code),
+    check(
+      'staff_profiles_display_name_ck',
+      sql`length(trim(${table.displayName})) between 2 and 120`,
+    ),
   ],
 );
 

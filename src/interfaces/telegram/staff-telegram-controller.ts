@@ -14,6 +14,10 @@ import type { BotLanguage } from '../../application/localization/bot-language.js
 const helpCommands = [
   '/queue',
   '/details TICKET',
+  '/staff',
+  '/staffgrant TELEGRAM_ID operator_manager|executor AREA full name',
+  '/staffsuspend STF_CODE reason',
+  '/staffrestore STF_CODE',
   '/validate TICKET',
   '/info TICKET savol',
   '/triage TICKET safety urgency affected social (har biri 0..5)',
@@ -66,6 +70,16 @@ function numeric(value: string | undefined, usage: string): number {
   if (!Number.isFinite(parsed))
     throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
   return parsed;
+}
+
+function positiveBigInt(value: string | undefined, usage: string): bigint {
+  try {
+    const parsed = BigInt(required(value, usage));
+    if (parsed > 0n) return parsed;
+  } catch {
+    // Converted to the same safe command-usage error below.
+  }
+  throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
 }
 
 function deadline(
@@ -136,6 +150,30 @@ function parse(text: string): StaffOperationCommand | 'help' {
       return { kind: 'queue' };
     case '/details':
       return { kind: 'request-details', ticketNumber: ticket() };
+    case '/staff':
+      return { kind: 'staff-list' };
+    case '/staffgrant': {
+      const usage = '/staffgrant TELEGRAM_ID operator_manager|executor AREA full name';
+      const role = required(parts[1], usage);
+      if (role !== 'operator_manager' && role !== 'executor') {
+        throw new DomainRuleError('COMMAND_INVALID', `Foydalanish: ${usage}`);
+      }
+      return {
+        areaCode: required(parts[2], usage).toUpperCase(),
+        displayName: required(parts.slice(3).join(' '), usage),
+        kind: 'staff-grant',
+        role,
+        telegramUserId: positiveBigInt(parts[0], usage),
+      };
+    }
+    case '/staffsuspend':
+      return {
+        code: ticket(),
+        kind: 'staff-suspend',
+        reason: required(parts.slice(1).join(' '), '/staffsuspend STF_CODE reason'),
+      };
+    case '/staffrestore':
+      return { code: ticket(), kind: 'staff-restore' };
     case '/validate':
       return { kind: 'validate', ticketNumber: ticket() };
     case '/info':

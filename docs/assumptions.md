@@ -39,6 +39,7 @@ the constraints.
 | DEC-031 | Keep profitability out of operational reporting until revenue, cost, tax, and allocation ownership are approved.      | Prevents invented financial claims and belongs with CP-09 commercial definitions.                      | Financial source-of-truth and accounting formulas are approved.                             |
 | DEC-032 | Use explicit, audited PDCA actions with a strict lifecycle; do not auto-create actions from free text.                | Gives managers accountability without unreliable AI classification or another service.                 | Sufficient labelled evidence and approved automation policy exist.                          |
 | DEC-033 | Treat resident urgency and visit hour as declared input/preferences; staff validates priority and confirms capacity.  | Prevents abuse and false booking/SLA promises while keeping the zero-cost Telegram MVP useful.         | A paid scheduling/capacity engine and approved service promises are introduced.             |
+| DEC-034 | Let scoped administrators onboard only operators/executors; new executors initially receive all active categories.    | Makes the first pilot usable without paid identity/catalog tooling while preserving least privilege.   | Real HR approval and specialization data require a narrower onboarding workflow.            |
 
 ## Constraints
 

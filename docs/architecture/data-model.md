@@ -8,7 +8,9 @@ erDiagram
     SERVICE_AREAS ||--o{ USER_ROLES : scopes
     SERVICE_AREAS ||--o{ ORDERS : classifies
     USERS ||--o{ USER_ROLES : receives
+    USERS ||--o| STAFF_PROFILES : has
     ROLES ||--o{ USER_ROLES : granted_as
+    ROLES ||--o{ STAFF_PROFILES : configures
     ROLES ||--o{ ROLE_PERMISSIONS : includes
     PERMISSIONS ||--o{ ROLE_PERMISSIONS : grants
     USERS ||--o{ SERVICE_REQUESTS : submits
@@ -51,7 +53,7 @@ erDiagram
 
 | Group            | Tables                                                                                                                                                                                         | Critical constraints/indexes                                                                                                                            |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Access           | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`                                                                                                                              | unique Telegram ID; active status; unique global/scoped role grants; service-area lookup                                                                |
+| Access           | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `staff_profiles`                                                                                                            | unique Telegram ID/STF code; active status; unique scoped grants; controlled role and reversible staff suspension                                       |
 | Catalog/location | `service_areas`, `service_categories`, `request_sources`, `addresses`                                                                                                                          | unique stable codes; active flags; valid paired latitude/longitude and ranges                                                                           |
 | Intake           | `service_requests`, `request_status_history`                                                                                                                                                   | unique ticket; nonblank description; nonnegative optimistic version; unique request/version history                                                     |
 | Telegram intake  | `resident_profiles`, `privacy_consents`, `telegram_intake_sessions`, `telegram_update_receipts`, `attachments`                                                                                 | versioned consent; full-name/own-contact profile; resumable language/urgency/visit-slot flow; globally unique update/submission IDs; controlled photos  |

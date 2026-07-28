@@ -56,6 +56,25 @@ describe('staff Telegram controller', () => {
     });
   });
 
+  it('parses controlled staff-access commands without allowing administrator grants', async () => {
+    const execute = vi.fn().mockResolvedValue('ok');
+    const controller = new StaffTelegramController({ execute });
+    await controller.handle(2n, '/staff');
+    await controller.handle(2n, '/staffgrant 123456 operator_manager demo Ali Valiyev');
+    await controller.handle(2n, '/staffsuspend stf-2026-00000001 Pilot ended');
+    await controller.handle(2n, '/staffrestore stf-2026-00000001');
+    expect(execute).toHaveBeenNthCalledWith(2, 2n, {
+      areaCode: 'DEMO',
+      displayName: 'Ali Valiyev',
+      kind: 'staff-grant',
+      role: 'operator_manager',
+      telegramUserId: 123456n,
+    });
+    await expect(
+      controller.handle(2n, '/staffgrant 123456 administrator DEMO Ali Valiyev'),
+    ).rejects.toThrow(/operator_manager/u);
+  });
+
   it('parses simple Tashkent and legacy ISO deadlines and rejects ambiguous values', async () => {
     const execute = vi.fn().mockResolvedValue('ok');
     const controller = new StaffTelegramController({ execute });

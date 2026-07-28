@@ -8,6 +8,7 @@ This document is an engineering default, not legal advice or a compliance claim.
 | Consent version/update ID/time        | demonstrate the notice accepted                    | privacy consent             | same period as resident account or required evidence                               |
 | Phone                                 | contact about the request                          | resident profile            | anonymize with closed-request policy (default 12 months)                           |
 | Full name                             | identify/contact the resident during service       | resident profile            | anonymize with closed-request policy (default 12 months)                           |
+| Staff name/Telegram ID/role/scope     | authenticate and operate the staff bot             | user, staff profile/role    | employment/authorization lifetime plus approved audit retention                    |
 | Address/coordinates and description   | understand and perform service                     | address and service request | default 12 months after closure pending approval                                   |
 | Declared urgency/preferred visit time | triage input and visit coordination                | service request             | default 12 months after closure pending approval                                   |
 | Telegram photo file IDs               | retrieve pilot evidence from Telegram              | attachment metadata         | default 90 days after closure; not contractual evidence                            |
@@ -34,3 +35,7 @@ Residents need a future authenticated workflow for access, correction, deletion/
 Staff request details are restricted by the existing `request.read.area` grant. Callback data
 contains only the ticket reference; it never embeds the resident's name, phone, address or selected
 time. The submission audit records declared urgency/ASAP state but does not duplicate raw PII.
+
+`/myid` discloses only the requesting Telegram account's own numeric ID. Staff-management callbacks
+contain stable `STF` references rather than Telegram IDs or names. Authorized administrator list
+output contains staff identity data and must not be forwarded outside the approved owner channel.

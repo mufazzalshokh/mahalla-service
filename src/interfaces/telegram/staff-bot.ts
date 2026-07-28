@@ -16,11 +16,14 @@ import {
   pdcaActions,
   referencesFromText,
   requestActions,
+  staffAccessActions,
+  staffAccessListMenu,
   staffEntityMenu,
   staffLanguageMenu,
   staffMainMenu,
   staffMenuActionForText,
   staffReportMenu,
+  staffRoleMenu,
   type StaffMenuAction,
 } from './staff-menu.js';
 import { TransientStore } from './transient-store.js';
@@ -51,11 +54,20 @@ interface InspectionState {
   readonly orderNumber: string;
 }
 
+interface PendingStaffCandidate {
+  readonly displayName: string;
+  readonly telegramUserId: bigint;
+}
+
 function localized(language: BotLanguage, uz: string, ru: string): string {
   return language === 'ru' ? ru : uz;
 }
 
-function referencesForCommand(command: string, text: string): InlineKeyboard | undefined {
+function referencesForCommand(
+  command: string,
+  text: string,
+  language: BotLanguage,
+): InlineKeyboard | undefined {
   if (command === '/queue') return staffEntityMenu('request', referencesFromText(text, 'MCK'));
   if (command === '/mine' || command === '/overdue') {
     return staffEntityMenu('order', referencesFromText(text, 'ORD'));
@@ -66,6 +78,9 @@ function referencesForCommand(command: string, text: string): InlineKeyboard | u
   if (command === '/pdca') return staffEntityMenu('pdca', referencesFromText(text, 'PDC'));
   if (command === '/failednotifications') {
     return staffEntityMenu('notification', referencesFromText(text, 'NTF'));
+  }
+  if (command === '/staff') {
+    return staffAccessListMenu(referencesFromText(text, 'STF'), language);
   }
   return undefined;
 }
@@ -111,6 +126,8 @@ export function createStaffBot(options: StaffBotOptions): Bot {
   const pendingText = new TransientStore<PendingText>(30 * 60 * 1_000, 500);
   const pendingPhoto = new TransientStore<PendingPhoto>(30 * 60 * 1_000, 500);
   const inspections = new TransientStore<InspectionState>(30 * 60 * 1_000, 500);
+  const pendingStaffIdentity = new TransientStore<true>(10 * 60 * 1_000, 500);
+  const pendingStaffCandidate = new TransientStore<PendingStaffCandidate>(10 * 60 * 1_000, 500);
 
   const userKey = (ctx: Context): string | undefined => ctx.from?.id.toString();
   const language = (ctx: Context): BotLanguage => {
@@ -150,7 +167,7 @@ export function createStaffBot(options: StaffBotOptions): Bot {
     await replyResult(
       ctx,
       result,
-      typeof result === 'string' ? referencesForCommand(command, result) : undefined,
+      typeof result === 'string' ? referencesForCommand(command, result, selected) : undefined,
     );
     return result;
   };
@@ -172,6 +189,7 @@ export function createStaffBot(options: StaffBotOptions): Bot {
       overdue: '/overdue',
       pdca: '/pdca',
       queue: '/queue',
+      staff: '/staff',
     };
     if (action === 'language') {
       await ctx.reply(localized(selected, 'Tilni tanlang.', 'Выберите язык.'), {
@@ -193,6 +211,17 @@ export function createStaffBot(options: StaffBotOptions): Bot {
     const key = userKey(ctx);
     if (!key) return;
     const text = ctx.message.text.trim();
+    const rawCommand = text.split(/\s+/u)[0]?.split('@')[0]?.toLowerCase();
+    if (rawCommand === '/myid') {
+      await ctx.reply(
+        localized(
+          language(ctx),
+          `Sizning Telegram ID raqamingiz: ${ctx.from.id}`,
+          `Ваш Telegram ID: ${ctx.from.id}`,
+        ),
+      );
+      return;
+    }
     if (text === '/start' || text === '/menu') {
       pendingText.delete(key);
       await showMenu(ctx);
@@ -202,6 +231,34 @@ export function createStaffBot(options: StaffBotOptions): Bot {
     if (action) {
       pendingText.delete(key);
       await menuAction(ctx, action);
+      return;
+    }
+    if (pendingStaffIdentity.get(key) && !text.startsWith('/')) {
+      pendingStaffIdentity.delete(key);
+      const fields = text.split('|').map((value) => value.trim());
+      let telegramUserId: bigint | undefined;
+      try {
+        telegramUserId = fields[0] ? BigInt(fields[0]) : undefined;
+      } catch {
+        telegramUserId = undefined;
+      }
+      const displayName = fields[1];
+      if (!telegramUserId || telegramUserId <= 0n || !displayName || fields.length !== 2) {
+        await ctx.reply(
+          localized(
+            language(ctx),
+            'Noto‘g‘ri format. “Telegram ID | Ism Familiya” ko‘rinishida qayta kiriting.',
+            'Неверный формат. Введите: «Telegram ID | Имя Фамилия».',
+          ),
+        );
+        pendingStaffIdentity.set(key, true);
+        return;
+      }
+      pendingStaffCandidate.set(key, { displayName, telegramUserId });
+      await ctx.reply(
+        localized(language(ctx), 'Xodim rolini tanlang.', 'Выберите роль сотрудника.'),
+        { reply_markup: staffRoleMenu(language(ctx)) },
+      );
       return;
     }
     const pending = pendingText.get(key);
@@ -242,6 +299,7 @@ export function createStaffBot(options: StaffBotOptions): Bot {
         order: orderActions(reference, selected),
         pdca: pdcaActions(reference, selected),
         request: requestActions(reference, selected),
+        staff: staffAccessActions(reference, selected),
       };
       const keyboard = menus[action ?? ''];
       await ctx.answerCallbackQuery();
@@ -255,6 +313,7 @@ export function createStaffBot(options: StaffBotOptions): Bot {
         duplicates: `/duplicates ${reference}`,
         details: `/details ${reference}`,
         register: `/register ${reference}`,
+        restorestaff: `/staffrestore ${reference}`,
         retrynotification: `/retrynotification ${reference}`,
         startrework: `/startrework ${reference}`,
         unblock: `/unblock ${reference}`,
@@ -283,6 +342,40 @@ export function createStaffBot(options: StaffBotOptions): Bot {
       }
       const command = commands[action];
       if (command) await execute(ctx, command);
+      return;
+    }
+    if (kind === 'staff' && action === 'add') {
+      pendingStaffCandidate.delete(key);
+      pendingStaffIdentity.set(key, true);
+      await ctx.answerCallbackQuery();
+      await ctx.reply(
+        localized(
+          selected,
+          'Xodim yuborgan Telegram ID va to‘liq ismini kiriting:\n123456789 | Ali Valiyev',
+          'Введите Telegram ID и полное имя сотрудника:\n123456789 | Иван Иванов',
+        ),
+      );
+      return;
+    }
+    if (kind === 'staffrole' && (action === 'operator_manager' || action === 'executor')) {
+      const candidate = pendingStaffCandidate.get(key);
+      await ctx.answerCallbackQuery();
+      if (!candidate) {
+        await ctx.reply(
+          localized(
+            selected,
+            'Kiritish vaqti tugadi. Qayta boshlang.',
+            'Время ввода истекло. Начните заново.',
+          ),
+        );
+        return;
+      }
+      pendingStaffCandidate.delete(key);
+      await execute(
+        ctx,
+        `/staffgrant ${candidate.telegramUserId} ${action} DEMO ${candidate.displayName}`,
+      );
+      await execute(ctx, '/staff');
       return;
     }
     if (kind === 'prompt' && action && reference) {
@@ -325,6 +418,13 @@ export function createStaffBot(options: StaffBotOptions): Bot {
         rework: {
           prefix: `/rework ${reference}`,
           prompt: { ru: 'Что нужно доработать?', uz: 'Nimani qayta ishlash kerak?' },
+        },
+        suspendstaff: {
+          prefix: `/staffsuspend ${reference}`,
+          prompt: {
+            ru: 'Напишите причину приостановки доступа.',
+            uz: 'Kirishni to‘xtatish sababini yozing.',
+          },
         },
         triage: {
           prefix: `/triage ${reference}`,
