@@ -5,8 +5,7 @@ This directory is the source of truth for the incremental Mahalla Service Compan
 
 ## Current checkpoint
 
-CP-00 through CP-08.1 are approved. CP-09 contracts, documents and finance foundation is in
-progress.
+CP-00 through CP-09 are approved. CP-10 security, reliability and observability hardening is next.
 
 ## Documents
 

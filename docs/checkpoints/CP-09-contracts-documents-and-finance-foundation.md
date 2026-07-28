@@ -1,5 +1,5 @@
 CHECKPOINT: CP-09 — Contracts, documents, and finance foundation
-STATUS: PASS
+STATUS: APPROVED — 2026-07-28
 
 ## 1. Objective
 
@@ -62,6 +62,6 @@ database if schema rollback is mandatory.
 CP-10 — security, reliability and observability hardening: rate limiting, secure upload boundaries,
 metrics/alerts, backup-restore rehearsal, authorization matrix, failure recovery and load checks.
 
-## 8. Approval gate
+## 8. Approval
 
-Wait for the exact stakeholder phrase `APPROVE CP-09` after live button smoke testing.
+Stakeholder approval received on 2026-07-28 with the exact phrase `APPROVE CP-09`.
