@@ -8,6 +8,7 @@ export interface TelegramInlineAction {
 }
 
 export interface TelegramReply {
+  readonly actionColumns: number;
   readonly contactLabel?: string | undefined;
   readonly inlineActions: readonly TelegramInlineAction[];
   readonly text: string;
@@ -19,6 +20,7 @@ export class ResidentTelegramController {
   async handle(command: ResidentUpdateCommand): Promise<TelegramReply> {
     const response = await this.service.execute(command);
     return {
+      actionColumns: response.actionColumns ?? 1,
       ...(response.requestContact
         ? { contactLabel: translate(response.language, 'share_contact') }
         : {}),

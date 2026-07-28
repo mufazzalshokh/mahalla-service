@@ -46,4 +46,6 @@ Protected assets are bot tokens, Telegram identifiers, phone numbers, addresses/
 - Consent is versioned and recorded before contact data is accepted.
 - Logs use update IDs, not message bodies, contact numbers, addresses, or file IDs.
 - Audit records ticket/status/source facts without duplicating resident content.
+- Resident-declared urgency does not set final priority or bypass area-scoped staff triage.
+- Preferred visit hours are stored as coordination preferences, not guaranteed capacity bookings.
 - No legal compliance is claimed; draft consent and retention defaults require owner review before real-data pilot use.

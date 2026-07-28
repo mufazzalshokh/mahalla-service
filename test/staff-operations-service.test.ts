@@ -55,6 +55,36 @@ function createService(): {
 }
 
 describe('staff execution operations', () => {
+  it('renders localized resident request details with a simple Tashkent visit window', async () => {
+    const dependencies = {
+      listQueue: {
+        details: vi.fn().mockResolvedValue({
+          addressLine: 'Amir Temur 10',
+          categoryNameRu: 'Сантехника',
+          categoryNameUzLatn: 'Santexnika',
+          description: 'Kitchen pipe is leaking',
+          fullName: 'Ali Valiyev',
+          phone: '+998901234567',
+          preferredVisitEnd: new Date('2026-07-28T09:00:00.000Z'),
+          preferredVisitStart: new Date('2026-07-28T08:00:00.000Z'),
+          residentDeclaredUrgency: 'IMPORTANT',
+          serviceAreaId: 'area',
+          status: 'RECEIVED',
+          ticketNumber: 'MCK-1',
+          visitAsSoonAsPossible: false,
+        }),
+      },
+      principals: { loadByTelegramUserId: vi.fn().mockResolvedValue(principal) },
+    } as unknown as StaffOperationDependencies;
+    const service = new StaffOperationsService(dependencies);
+    await expect(
+      service.execute(1n, { kind: 'request-details', ticketNumber: 'MCK-1' }, 'uz'),
+    ).resolves.toContain('28.07.2026 13:00–14:00');
+    await expect(
+      service.execute(1n, { kind: 'request-details', ticketNumber: 'MCK-1' }, 'ru'),
+    ).resolves.toContain('Сантехника');
+  });
+
   it('dispatches every operator and executor execution command', async () => {
     const { execution, quality, service } = createService();
     const commands: readonly StaffOperationCommand[] = [

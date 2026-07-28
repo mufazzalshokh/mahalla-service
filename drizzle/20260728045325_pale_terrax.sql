@@ -1,0 +1,11 @@
+CREATE TYPE "public"."resident_declared_urgency" AS ENUM('CRITICAL', 'IMPORTANT', 'PLANNED');--> statement-breakpoint
+ALTER TABLE "telegram_intake_sessions" DROP CONSTRAINT "telegram_intake_sessions_step_ck";--> statement-breakpoint
+ALTER TABLE "resident_profiles" ADD COLUMN "full_name" varchar(120);--> statement-breakpoint
+ALTER TABLE "service_requests" ADD COLUMN "preferred_visit_end" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "service_requests" ADD COLUMN "preferred_visit_start" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "service_requests" ADD COLUMN "resident_declared_urgency" "resident_declared_urgency";--> statement-breakpoint
+ALTER TABLE "service_requests" ADD COLUMN "visit_as_soon_as_possible" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "resident_profiles" ADD CONSTRAINT "resident_profiles_full_name_ck" CHECK ("resident_profiles"."full_name" is null or length(trim("resident_profiles"."full_name")) between 3 and 120);--> statement-breakpoint
+ALTER TABLE "service_requests" ADD CONSTRAINT "service_requests_visit_window_pair_ck" CHECK (("service_requests"."preferred_visit_start" is null and "service_requests"."preferred_visit_end" is null) or ("service_requests"."preferred_visit_start" is not null and "service_requests"."preferred_visit_end" is not null and "service_requests"."preferred_visit_end" > "service_requests"."preferred_visit_start"));--> statement-breakpoint
+ALTER TABLE "service_requests" ADD CONSTRAINT "service_requests_visit_choice_ck" CHECK (not "service_requests"."visit_as_soon_as_possible" or ("service_requests"."preferred_visit_start" is null and "service_requests"."preferred_visit_end" is null));--> statement-breakpoint
+ALTER TABLE "telegram_intake_sessions" ADD CONSTRAINT "telegram_intake_sessions_step_ck" CHECK ("telegram_intake_sessions"."step" in ('CHOOSE_LANGUAGE', 'ACCEPT_PRIVACY', 'ENTER_FULL_NAME', 'SHARE_CONTACT', 'CHOOSE_CATEGORY', 'CHOOSE_URGENCY', 'ENTER_DESCRIPTION', 'ENTER_ADDRESS', 'CHOOSE_VISIT_DATE', 'CHOOSE_VISIT_PERIOD', 'CHOOSE_VISIT_SLOT', 'ADD_PHOTOS', 'REVIEW', 'SUBMITTED'));

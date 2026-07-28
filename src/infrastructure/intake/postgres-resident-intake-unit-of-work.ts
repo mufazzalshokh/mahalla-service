@@ -31,21 +31,31 @@ import {
 } from '../database/schema.js';
 
 const responseSchema = z.object({
+  actionColumns: z.number().int().min(1).max(3).optional(),
   actions: z.array(z.object({ data: z.string(), labelKey: z.string() })).optional(),
   categories: z.array(z.object({ id: z.string(), label: z.string() })).optional(),
   key: z.enum([
     'choose_language',
     'privacy_notice',
     'consent_required',
+    'enter_full_name',
+    'invalid_full_name',
     'share_contact',
     'contact_must_be_own',
     'invalid_contact',
     'choose_category',
     'invalid_category',
+    'choose_urgency',
+    'invalid_urgency',
     'enter_description',
     'invalid_description',
     'enter_address',
     'invalid_address',
+    'choose_visit_date',
+    'choose_visit_period',
+    'choose_visit_slot',
+    'invalid_visit_date',
+    'invalid_visit_slot',
     'add_photos',
     'photo_added',
     'photo_invalid',
@@ -66,6 +76,7 @@ const draftSchema = z.object({
   categoryId: z.string().optional(),
   categoryLabel: z.string().optional(),
   description: z.string().optional(),
+  fullName: z.string().optional(),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
   phone: z.string().optional(),
@@ -78,6 +89,12 @@ const draftSchema = z.object({
       }),
     )
     .max(3),
+  preferredVisitDate: z.string().optional(),
+  preferredVisitEnd: z.string().datetime().optional(),
+  preferredVisitPeriodStartHour: z.number().int().min(0).max(23).optional(),
+  preferredVisitStart: z.string().datetime().optional(),
+  residentDeclaredUrgency: z.enum(['CRITICAL', 'IMPORTANT', 'PLANNED']).optional(),
+  visitAsSoonAsPossible: z.boolean().optional(),
 });
 
 function mapSession(row: typeof telegramIntakeSessions.$inferSelect): IntakeSession {
@@ -94,24 +111,44 @@ interface CompleteDraft {
   readonly addressLine: string;
   readonly categoryId: string;
   readonly description: string;
+  readonly fullName: string;
   readonly latitude?: number | undefined;
   readonly longitude?: number | undefined;
   readonly phone: string;
   readonly photos: IntakeDraft['photos'];
+  readonly preferredVisitEnd?: Date | undefined;
+  readonly preferredVisitStart?: Date | undefined;
+  readonly residentDeclaredUrgency: 'CRITICAL' | 'IMPORTANT' | 'PLANNED';
+  readonly visitAsSoonAsPossible: boolean;
 }
 
 function requireCompleteDraft(draft: IntakeDraft): CompleteDraft {
-  if (!draft.addressLine || !draft.categoryId || !draft.description || !draft.phone) {
+  if (
+    !draft.addressLine ||
+    !draft.categoryId ||
+    !draft.description ||
+    !draft.fullName ||
+    !draft.phone ||
+    !draft.residentDeclaredUrgency ||
+    (!draft.visitAsSoonAsPossible && (!draft.preferredVisitStart || !draft.preferredVisitEnd))
+  ) {
     throw new DomainRuleError('INCOMPLETE_INTAKE', 'Intake draft is incomplete');
   }
   return {
     addressLine: draft.addressLine,
     categoryId: draft.categoryId,
     description: draft.description,
+    fullName: draft.fullName,
     latitude: draft.latitude,
     longitude: draft.longitude,
     phone: draft.phone,
     photos: draft.photos,
+    ...(draft.preferredVisitEnd ? { preferredVisitEnd: new Date(draft.preferredVisitEnd) } : {}),
+    ...(draft.preferredVisitStart
+      ? { preferredVisitStart: new Date(draft.preferredVisitStart) }
+      : {}),
+    residentDeclaredUrgency: draft.residentDeclaredUrgency,
+    visitAsSoonAsPossible: draft.visitAsSoonAsPossible ?? false,
   };
 }
 
@@ -216,6 +253,7 @@ export class PostgresResidentIntakeUnitOfWork implements ResidentIntakeUnitOfWor
 
       const plan = planner({
         categories,
+        now: new Date(),
         ...(session ? { session } : {}),
         ...(ticket ? { ticket } : {}),
       });
@@ -225,12 +263,14 @@ export class PostgresResidentIntakeUnitOfWork implements ResidentIntakeUnitOfWor
         await tx
           .insert(residentProfiles)
           .values({
+            fullName: plan.session.draft.fullName,
             language: plan.session.language,
             phone: plan.session.draft.phone,
             userId: user.id,
           })
           .onConflictDoUpdate({
             set: {
+              fullName: plan.session.draft.fullName,
               language: plan.session.language,
               phone: plan.session.draft.phone,
               updatedAt: new Date(),
@@ -288,17 +328,25 @@ export class PostgresResidentIntakeUnitOfWork implements ResidentIntakeUnitOfWor
             addressId: address.id,
             categoryId: draft.categoryId,
             description: draft.description,
+            preferredVisitEnd: draft.preferredVisitEnd,
+            preferredVisitStart: draft.preferredVisitStart,
             requesterUserId: user.id,
+            residentDeclaredUrgency: draft.residentDeclaredUrgency,
             sourceId: source.id,
             submissionUpdateId: command.updateId,
             ticketNumber,
+            visitAsSoonAsPossible: draft.visitAsSoonAsPossible,
           })
           .returning({ id: serviceRequests.id });
         if (!created) throw new Error('Service request was not created');
 
         await tx.insert(requestStatusHistory).values({
           actorUserId: user.id,
-          metadata: { source: 'TELEGRAM' },
+          metadata: {
+            residentDeclaredUrgency: draft.residentDeclaredUrgency,
+            source: 'TELEGRAM',
+            visitAsSoonAsPossible: draft.visitAsSoonAsPossible,
+          },
           requestId: created.id,
           requestVersion: 0,
           toStatus: 'RECEIVED',
@@ -307,7 +355,14 @@ export class PostgresResidentIntakeUnitOfWork implements ResidentIntakeUnitOfWor
         await tx.insert(auditLogs).values({
           action: 'request.submitted',
           actorUserId: user.id,
-          after: { source: 'TELEGRAM', status: 'RECEIVED', ticketNumber, version: 0 },
+          after: {
+            residentDeclaredUrgency: draft.residentDeclaredUrgency,
+            source: 'TELEGRAM',
+            status: 'RECEIVED',
+            ticketNumber,
+            version: 0,
+            visitAsSoonAsPossible: draft.visitAsSoonAsPossible,
+          },
           entityId: created.id,
           entityType: 'service_request',
           requestId: command.updateId.toString(),

@@ -60,6 +60,7 @@ describe.runIf(Boolean(databaseUrl))('CP-03 resident intake persistence', () => 
     await execute(telegramUserId, updateId++, { kind: 'start' });
     await execute(telegramUserId, updateId++, { data: 'lang:uz-Latn', kind: 'callback' });
     await execute(telegramUserId, updateId++, { data: 'consent:accept', kind: 'callback' });
+    await execute(telegramUserId, updateId++, { kind: 'text', text: 'Test Resident' });
     const categories = await execute(telegramUserId, updateId++, {
       contactTelegramUserId: telegramUserId,
       kind: 'contact',
@@ -72,14 +73,33 @@ describe.runIf(Boolean(databaseUrl))('CP-03 resident intake persistence', () => 
       kind: 'callback',
     });
     await execute(telegramUserId, updateId++, {
+      data: 'urgency:IMPORTANT',
+      kind: 'callback',
+    });
+    await execute(telegramUserId, updateId++, {
       kind: 'text',
       text: 'Kitchen water pipe is leaking badly',
     });
-    await execute(telegramUserId, updateId++, {
+    const dates = await execute(telegramUserId, updateId++, {
       kind: 'location',
       latitude: 41.311081,
       longitude: 69.240562,
     });
+    const date = dates.actions?.find(({ data }) => data.startsWith('visit:date:'));
+    if (!date) throw new Error('Visit date action was not returned');
+    const periods = await execute(telegramUserId, updateId++, {
+      data: date.data,
+      kind: 'callback',
+    });
+    const period = periods.actions?.[0];
+    if (!period) throw new Error('Visit period action was not returned');
+    const slots = await execute(telegramUserId, updateId++, {
+      data: period.data,
+      kind: 'callback',
+    });
+    const slot = slots.actions?.[0];
+    if (!slot) throw new Error('Visit slot action was not returned');
+    await execute(telegramUserId, updateId++, { data: slot.data, kind: 'callback' });
     if (includePhoto) {
       await execute(telegramUserId, updateId++, {
         kind: 'photo',
@@ -122,13 +142,21 @@ describe.runIf(Boolean(databaseUrl))('CP-03 resident intake persistence', () => 
     expect(requests).toHaveLength(1);
     const request = requests[0];
     if (!request) throw new Error('Service request was not persisted');
-    expect(request).toMatchObject({ status: 'RECEIVED', submissionUpdateId: confirmUpdateId });
+    expect(request).toMatchObject({
+      residentDeclaredUrgency: 'IMPORTANT',
+      status: 'RECEIVED',
+      submissionUpdateId: confirmUpdateId,
+      visitAsSoonAsPossible: false,
+    });
+    expect(request.preferredVisitStart).toBeInstanceOf(Date);
     await expect(
       client.db.select().from(privacyConsents).where(eq(privacyConsents.userId, user.id)),
     ).resolves.toHaveLength(1);
     await expect(
       client.db.select().from(residentProfiles).where(eq(residentProfiles.userId, user.id)),
-    ).resolves.toMatchObject([{ language: 'uz-Latn', phone: '+998901234567' }]);
+    ).resolves.toMatchObject([
+      { fullName: 'Test Resident', language: 'uz-Latn', phone: '+998901234567' },
+    ]);
     await expect(
       client.db.select().from(attachments).where(eq(attachments.requestId, request.id)),
     ).resolves.toHaveLength(1);
@@ -213,6 +241,7 @@ describe.runIf(Boolean(databaseUrl))('CP-03 resident intake persistence', () => 
     });
     expect(privacy.language).toBe('ru');
     await execute(telegramUserId, updateId++, { data: 'consent:accept', kind: 'callback' });
+    await execute(telegramUserId, updateId++, { kind: 'text', text: 'Иван Иванов' });
     const categories = await execute(telegramUserId, updateId, {
       contactTelegramUserId: telegramUserId,
       kind: 'contact',

@@ -55,6 +55,7 @@ function repository(): TriageRepository {
     decideDuplicate: vi.fn(),
     findDuplicateCandidates: vi.fn().mockResolvedValue([]),
     findPriorityAssessment: vi.fn().mockResolvedValue(assessment),
+    findResidentRequestDetails: vi.fn(),
     findRequest: vi.fn().mockResolvedValue(request),
     listValidationQueue: vi.fn().mockResolvedValue([]),
     loadActivePriorityModel: vi.fn().mockResolvedValue({

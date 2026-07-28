@@ -20,6 +20,10 @@ reports, complaints, notifications, orders and PDCA actions are available as but
 open contextual action buttons. The bot asks for text only when the business record needs a factual
 reason, note, score, deadline or summary.
 
+For a request, press `👁 Tafsilotlar / Подробности` to see the area-authorized full name, phone,
+category, declared urgency, description, address and preferred visit window. Treat the declared
+urgency as resident input; use the normal triage action to establish final operational priority.
+
 The guided quality checklist requires every item to be explicitly marked PASS or FAIL before it asks
 for the inspection summary. BEFORE/AFTER buttons arm the next uploaded photo, so a caption command is
 not required. Guided state is bounded, process-local and expires after 30 minutes; `/menu` safely
@@ -30,6 +34,7 @@ persisted request/order facts.
 
 ```text
 /queue
+/details TICKET
 /validate TICKET
 /info TICKET question
 /triage TICKET safety urgency affected social

@@ -13,6 +13,7 @@ import type { BotLanguage } from '../../application/localization/bot-language.js
 
 const helpCommands = [
   '/queue',
+  '/details TICKET',
   '/validate TICKET',
   '/info TICKET savol',
   '/triage TICKET safety urgency affected social (har biri 0..5)',
@@ -133,6 +134,8 @@ function parse(text: string): StaffOperationCommand | 'help' {
       return 'help';
     case '/queue':
       return { kind: 'queue' };
+    case '/details':
+      return { kind: 'request-details', ticketNumber: ticket() };
     case '/validate':
       return { kind: 'validate', ticketNumber: ticket() };
     case '/info':

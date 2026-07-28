@@ -12,6 +12,22 @@ export interface TriageRequestRecord extends RequestRecord, DuplicateCandidateFa
   readonly sourceConfidence: number;
 }
 
+export interface ResidentRequestDetails {
+  readonly addressLine: string;
+  readonly categoryNameRu: string;
+  readonly categoryNameUzLatn: string;
+  readonly description: string;
+  readonly fullName: string | null;
+  readonly phone: string | null;
+  readonly preferredVisitEnd: Date | null;
+  readonly preferredVisitStart: Date | null;
+  readonly residentDeclaredUrgency: 'CRITICAL' | 'IMPORTANT' | 'PLANNED' | null;
+  readonly serviceAreaId: string;
+  readonly status: RequestRecord['status'];
+  readonly ticketNumber: string;
+  readonly visitAsSoonAsPossible: boolean;
+}
+
 export interface PriorityModelRecord {
   readonly code: string;
   readonly criteria: readonly PriorityCriterionDefinition[];
@@ -55,6 +71,7 @@ export interface OrderRegistrationResult {
 }
 
 export interface TriageRepository {
+  findResidentRequestDetails(ticketNumber: string): Promise<ResidentRequestDetails | undefined>;
   findRequest(ticketNumber: string): Promise<TriageRequestRecord | undefined>;
   loadActivePriorityModel(): Promise<PriorityModelRecord | undefined>;
   savePriorityAssessment(command: SavePriorityAssessment): Promise<PriorityAssessmentRecord>;

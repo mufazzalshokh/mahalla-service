@@ -7,6 +7,7 @@ import { TransitionRequestService } from '../src/application/requests/transition
 import {
   AssessPriorityService,
   DecideDuplicateService,
+  ListValidationQueueService,
   OverridePriorityService,
   RegisterRequestAsOrderService,
   SuggestDuplicatesService,
@@ -24,6 +25,7 @@ import {
   orders,
   requestInformationMessages,
   requestSources,
+  residentProfiles,
   roles,
   serviceAreas,
   serviceCategories,
@@ -51,6 +53,7 @@ describe.runIf(Boolean(databaseUrl))('CP-04 PostgreSQL validation and triage', (
   let decideDuplicate: DecideDuplicateService;
   let override: OverridePriorityService;
   let register: RegisterRequestAsOrderService;
+  let queue: ListValidationQueueService;
 
   beforeAll(async () => {
     client = createDatabaseClient(databaseUrl as string);
@@ -93,6 +96,12 @@ describe.runIf(Boolean(databaseUrl))('CP-04 PostgreSQL validation and triage', (
       serviceAreaId: areaId,
       userId: operatorUser.id,
     });
+    await client.db.insert(residentProfiles).values({
+      fullName: 'Ali Valiyev',
+      language: 'uz-Latn',
+      phone: '+998901234567',
+      userId: residentUser.id,
+    });
     const provider = new PostgresPrincipalProvider(client.db);
     const loadedOperator = await provider.load(operatorUser.id);
     const loadedResident = await provider.load(residentUser.id);
@@ -107,6 +116,7 @@ describe.runIf(Boolean(databaseUrl))('CP-04 PostgreSQL validation and triage', (
     decideDuplicate = new DecideDuplicateService(triageRepository);
     override = new OverridePriorityService(triageRepository);
     register = new RegisterRequestAsOrderService(triageRepository);
+    queue = new ListValidationQueueService(triageRepository);
   }, 60_000);
 
   afterAll(async () => client.close());
@@ -131,7 +141,10 @@ describe.runIf(Boolean(databaseUrl))('CP-04 PostgreSQL validation and triage', (
         addressId: address.id,
         categoryId,
         description,
+        preferredVisitEnd: new Date('2026-07-28T09:00:00.000Z'),
+        preferredVisitStart: new Date('2026-07-28T08:00:00.000Z'),
         requesterUserId: resident.userId,
+        residentDeclaredUrgency: 'IMPORTANT',
         sourceId,
         ticketNumber,
       })
@@ -139,6 +152,19 @@ describe.runIf(Boolean(databaseUrl))('CP-04 PostgreSQL validation and triage', (
     if (!request) throw new Error('Request was not created');
     return { id: request.id, ticketNumber };
   }
+
+  it('returns area-authorized resident and preferred-visit details', async () => {
+    const request = await createRequest('Oshxonadagi quvurdan suv oqmoqda');
+    await expect(queue.details(request.ticketNumber, operator)).resolves.toMatchObject({
+      fullName: 'Ali Valiyev',
+      phone: '+998901234567',
+      preferredVisitStart: new Date('2026-07-28T08:00:00.000Z'),
+      residentDeclaredUrgency: 'IMPORTANT',
+    });
+    await expect(queue.details(request.ticketNumber, resident)).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+  });
 
   async function validateAndAssess(ticketNumber: string): Promise<void> {
     await transitions.execute({ data: {}, ticketNumber, to: 'VALIDATING' }, operator);

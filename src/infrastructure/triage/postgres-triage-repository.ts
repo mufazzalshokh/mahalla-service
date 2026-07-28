@@ -5,6 +5,7 @@ import type {
   OrderRegistrationResult,
   PriorityAssessmentRecord,
   PriorityModelRecord,
+  ResidentRequestDetails,
   SavePriorityAssessment,
   TriageRepository,
   TriageRequestRecord,
@@ -31,6 +32,8 @@ import {
   requestDuplicateMatches,
   requestSources,
   requestStatusHistory,
+  residentProfiles,
+  serviceCategories,
   serviceRequests,
 } from '../database/schema.js';
 import { enqueueNotificationIntent } from '../notifications/notification-enqueuer.js';
@@ -127,6 +130,34 @@ export class PostgresTriageRepository implements TriageRepository {
       .where(eq(serviceRequests.ticketNumber, ticketNumber))
       .limit(1);
     return row ? mapRequest(row) : undefined;
+  }
+
+  async findResidentRequestDetails(
+    ticketNumber: string,
+  ): Promise<ResidentRequestDetails | undefined> {
+    const [row] = await this.database
+      .select({
+        addressLine: addresses.line1,
+        categoryNameRu: serviceCategories.nameRu,
+        categoryNameUzLatn: serviceCategories.nameUzLatn,
+        description: serviceRequests.description,
+        fullName: residentProfiles.fullName,
+        phone: residentProfiles.phone,
+        preferredVisitEnd: serviceRequests.preferredVisitEnd,
+        preferredVisitStart: serviceRequests.preferredVisitStart,
+        residentDeclaredUrgency: serviceRequests.residentDeclaredUrgency,
+        serviceAreaId: addresses.serviceAreaId,
+        status: serviceRequests.status,
+        ticketNumber: serviceRequests.ticketNumber,
+        visitAsSoonAsPossible: serviceRequests.visitAsSoonAsPossible,
+      })
+      .from(serviceRequests)
+      .innerJoin(addresses, eq(addresses.id, serviceRequests.addressId))
+      .innerJoin(serviceCategories, eq(serviceCategories.id, serviceRequests.categoryId))
+      .leftJoin(residentProfiles, eq(residentProfiles.userId, serviceRequests.requesterUserId))
+      .where(eq(serviceRequests.ticketNumber, ticketNumber))
+      .limit(1);
+    return row;
   }
 
   async loadActivePriorityModel(): Promise<PriorityModelRecord | undefined> {

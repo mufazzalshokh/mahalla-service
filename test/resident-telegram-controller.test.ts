@@ -32,7 +32,8 @@ describe('resident Telegram controller', () => {
       telegramUserId: 1n,
       updateId: 1n,
     });
-    expect(reply.inlineActions).toEqual([{ data: 'consent:accept', label: 'Қабул қиламан' }]);
+    expect(reply.inlineActions).toEqual([{ data: 'consent:accept', label: '✅ Қабул қиламан' }]);
+    expect(reply.actionColumns).toBe(1);
     expect(reply.text).toContain('v1');
   });
 
@@ -61,7 +62,7 @@ describe('resident Telegram controller', () => {
   });
 
   it('renders Russian resident messages', () => {
-    expect(translate('ru', 'choose_category')).toBe('Выберите вид услуги.');
+    expect(translate('ru', 'choose_category')).toContain('Выберите вид услуги.');
     expect(translate('ru', 'submitted', { ticketNumber: 'MCK-1' })).toContain('MCK-1');
   });
 });

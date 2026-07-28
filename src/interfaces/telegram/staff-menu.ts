@@ -96,6 +96,8 @@ export function referencesFromText(text: string, prefix: string): readonly strin
 
 export function requestActions(reference: string, language: BotLanguage): InlineKeyboard {
   return new InlineKeyboard()
+    .text(language === 'ru' ? '👁 Подробности' : '👁 Tafsilotlar', `action:details:${reference}`)
+    .row()
     .text(
       language === 'ru' ? 'Начать проверку' : 'Tekshiruvni boshlash',
       `action:validate:${reference}`,

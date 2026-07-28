@@ -57,3 +57,26 @@ export function parseTashkentDateTime(dateText: string, timeText: string): Date 
   }
   return parsed;
 }
+
+export function tashkentIsoDate(value: Date): string {
+  const { day, month, year } = parts(value);
+  return `${year}-${month}-${day}`;
+}
+
+export function addTashkentCalendarDays(value: Date, days: number): string {
+  if (!Number.isInteger(days)) throw new RangeError('Days must be an integer');
+  const shifted = new Date(validDate(value).getTime() + tashkentOffsetMilliseconds);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return `${String(shifted.getUTCFullYear()).padStart(4, '0')}-${String(
+    shifted.getUTCMonth() + 1,
+  ).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`;
+}
+
+export function parseTashkentIsoDateHour(dateText: string, hour: number): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(dateText);
+  if (!match || !Number.isInteger(hour) || hour < 0 || hour > 23) {
+    throw new RangeError('Visit slot must use YYYY-MM-DD and a whole hour');
+  }
+  const [, year, month, day] = match;
+  return parseTashkentDateTime(`${day}.${month}.${year}`, `${String(hour).padStart(2, '0')}:00`);
+}

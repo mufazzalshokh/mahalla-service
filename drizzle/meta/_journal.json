@@ -64,6 +64,13 @@
       "when": 1785190440678,
       "tag": "20260727221400_modern_sunfire",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785214405145,
+      "tag": "20260728045325_pale_terrax",
+      "breakpoints": true
     }
   ]
 }

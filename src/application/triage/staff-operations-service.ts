@@ -43,6 +43,7 @@ export interface StaffOperations {
 
 export type StaffOperationCommand =
   | { readonly kind: 'queue' }
+  | { readonly kind: 'request-details'; readonly ticketNumber: string }
   | { readonly kind: 'validate'; readonly ticketNumber: string }
   | { readonly kind: 'information'; readonly question: string; readonly ticketNumber: string }
   | {
@@ -159,6 +160,27 @@ export class StaffOperationsService implements StaffOperations {
         return requests
           .map(({ status, ticketNumber }) => `${ticketNumber} — ${staffStatus(language, status)}`)
           .join('\n');
+      }
+      case 'request-details': {
+        const details = await this.dependencies.listQueue.details(command.ticketNumber, principal);
+        const urgency = details.residentDeclaredUrgency
+          ? staffStatus(language, details.residentDeclaredUrgency)
+          : language === 'ru'
+            ? 'не указана'
+            : 'ko‘rsatilmagan';
+        const visit = details.visitAsSoonAsPossible
+          ? language === 'ru'
+            ? 'как можно скорее'
+            : 'imkon qadar tez'
+          : details.preferredVisitStart && details.preferredVisitEnd
+            ? `${formatTashkentDateTime(details.preferredVisitStart)}–${formatTashkentDateTime(details.preferredVisitEnd).slice(-5)}`
+            : language === 'ru'
+              ? 'не указано'
+              : 'ko‘rsatilmagan';
+        const category = language === 'ru' ? details.categoryNameRu : details.categoryNameUzLatn;
+        return language === 'ru'
+          ? `📋 ${details.ticketNumber}\n👤 ${details.fullName ?? 'Не указано'}\n📱 ${details.phone ?? 'Не указано'}\n🧰 ${category}\n⏱ Заявленная срочность: ${urgency}\n📝 ${details.description}\n📍 ${details.addressLine}\n🕐 Желаемое время: ${visit}\n📌 Статус: ${staffStatus(language, details.status)}`
+          : `📋 ${details.ticketNumber}\n👤 ${details.fullName ?? 'Ko‘rsatilmagan'}\n📱 ${details.phone ?? 'Ko‘rsatilmagan'}\n🧰 ${category}\n⏱ Bildirilgan shoshilinchlik: ${urgency}\n📝 ${details.description}\n📍 ${details.addressLine}\n🕐 Qulay vaqt: ${visit}\n📌 Holat: ${staffStatus(language, details.status)}`;
       }
       case 'validate': {
         const request = await this.dependencies.transitionRequest.execute(

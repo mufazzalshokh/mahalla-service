@@ -4,15 +4,23 @@ export type SupportedLanguage = (typeof supportedLanguages)[number];
 export const intakeSteps = [
   'CHOOSE_LANGUAGE',
   'ACCEPT_PRIVACY',
+  'ENTER_FULL_NAME',
   'SHARE_CONTACT',
   'CHOOSE_CATEGORY',
+  'CHOOSE_URGENCY',
   'ENTER_DESCRIPTION',
   'ENTER_ADDRESS',
+  'CHOOSE_VISIT_DATE',
+  'CHOOSE_VISIT_PERIOD',
+  'CHOOSE_VISIT_SLOT',
   'ADD_PHOTOS',
   'REVIEW',
   'SUBMITTED',
 ] as const;
 export type IntakeStep = (typeof intakeSteps)[number];
+
+export const residentDeclaredUrgencies = ['CRITICAL', 'IMPORTANT', 'PLANNED'] as const;
+export type ResidentDeclaredUrgency = (typeof residentDeclaredUrgencies)[number];
 
 export interface IntakePhoto {
   readonly fileId: string;
@@ -25,10 +33,17 @@ export interface IntakeDraft {
   readonly categoryId?: string | undefined;
   readonly categoryLabel?: string | undefined;
   readonly description?: string | undefined;
+  readonly fullName?: string | undefined;
   readonly latitude?: number | undefined;
   readonly longitude?: number | undefined;
   readonly phone?: string | undefined;
   readonly photos: readonly IntakePhoto[];
+  readonly preferredVisitDate?: string | undefined;
+  readonly preferredVisitEnd?: string | undefined;
+  readonly preferredVisitPeriodStartHour?: number | undefined;
+  readonly preferredVisitStart?: string | undefined;
+  readonly residentDeclaredUrgency?: ResidentDeclaredUrgency | undefined;
+  readonly visitAsSoonAsPossible?: boolean | undefined;
 }
 
 export interface IntakeSession {
@@ -71,15 +86,24 @@ export type MessageKey =
   | 'choose_language'
   | 'privacy_notice'
   | 'consent_required'
+  | 'enter_full_name'
+  | 'invalid_full_name'
   | 'share_contact'
   | 'contact_must_be_own'
   | 'invalid_contact'
   | 'choose_category'
   | 'invalid_category'
+  | 'choose_urgency'
+  | 'invalid_urgency'
   | 'enter_description'
   | 'invalid_description'
   | 'enter_address'
   | 'invalid_address'
+  | 'choose_visit_date'
+  | 'choose_visit_period'
+  | 'choose_visit_slot'
+  | 'invalid_visit_date'
+  | 'invalid_visit_slot'
   | 'add_photos'
   | 'photo_added'
   | 'photo_invalid'
@@ -96,6 +120,7 @@ export interface ResponseAction {
 }
 
 export interface IntakeResponse {
+  readonly actionColumns?: number | undefined;
   readonly actions?: readonly ResponseAction[] | undefined;
   readonly categories?: readonly CategoryOption[] | undefined;
   readonly key: MessageKey;
@@ -106,6 +131,7 @@ export interface IntakeResponse {
 
 export interface IntakePlanningContext {
   readonly categories: readonly CategoryOption[];
+  readonly now?: Date | undefined;
   readonly session?: IntakeSession | undefined;
   readonly ticket?: TicketStatusView | undefined;
 }

@@ -41,14 +41,19 @@ describe('staff Telegram controller', () => {
     await expect(controller.handle(10n, '/info A')).rejects.toThrow(/Foydalanish/);
   });
 
-  it('dispatches confirmation, information, queue and rejection commands', async () => {
+  it('dispatches confirmation, information, queue, details and rejection commands', async () => {
     const execute = vi.fn().mockResolvedValue('ok');
     const controller = new StaffTelegramController({ execute });
     await controller.handle(2n, '/duplicate a b confirm');
     await controller.handle(2n, '/info a Manzilni aniqlang');
     await controller.handle(2n, '/queue');
+    await controller.handle(2n, '/details mck-2026-00000001');
     await controller.handle(2n, '/reject a Takroriy murojaat');
-    expect(execute).toHaveBeenCalledTimes(4);
+    expect(execute).toHaveBeenCalledTimes(5);
+    expect(execute).toHaveBeenNthCalledWith(4, 2n, {
+      kind: 'request-details',
+      ticketNumber: 'MCK-2026-00000001',
+    });
   });
 
   it('parses simple Tashkent and legacy ISO deadlines and rejects ambiguous values', async () => {

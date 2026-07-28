@@ -40,6 +40,11 @@ export const priorityBandEnum = pgEnum('priority_band', [
   'PLANNED',
   'MONITOR',
 ]);
+export const residentDeclaredUrgencyEnum = pgEnum('resident_declared_urgency', [
+  'CRITICAL',
+  'IMPORTANT',
+  'PLANNED',
+]);
 export const duplicateMatchStatusEnum = pgEnum('duplicate_match_status', [
   'SUGGESTED',
   'CONFIRMED',
@@ -148,6 +153,7 @@ export const users = pgTable(
 export const residentProfiles = pgTable(
   'resident_profiles',
   {
+    fullName: varchar('full_name', { length: 120 }),
     language: varchar('language', { length: 20 }).notNull(),
     phone: varchar('phone', { length: 16 }),
     updatedAt,
@@ -160,6 +166,10 @@ export const residentProfiles = pgTable(
     check(
       'resident_profiles_phone_ck',
       sql`${table.phone} is null or ${table.phone} ~ '^\\+[1-9][0-9]{7,14}$'`,
+    ),
+    check(
+      'resident_profiles_full_name_ck',
+      sql`${table.fullName} is null or length(trim(${table.fullName})) between 3 and 120`,
     ),
   ],
 );
@@ -198,7 +208,7 @@ export const telegramIntakeSessions = pgTable(
   (table) => [
     check(
       'telegram_intake_sessions_step_ck',
-      sql`${table.step} in ('CHOOSE_LANGUAGE', 'ACCEPT_PRIVACY', 'SHARE_CONTACT', 'CHOOSE_CATEGORY', 'ENTER_DESCRIPTION', 'ENTER_ADDRESS', 'ADD_PHOTOS', 'REVIEW', 'SUBMITTED')`,
+      sql`${table.step} in ('CHOOSE_LANGUAGE', 'ACCEPT_PRIVACY', 'ENTER_FULL_NAME', 'SHARE_CONTACT', 'CHOOSE_CATEGORY', 'CHOOSE_URGENCY', 'ENTER_DESCRIPTION', 'ENTER_ADDRESS', 'CHOOSE_VISIT_DATE', 'CHOOSE_VISIT_PERIOD', 'CHOOSE_VISIT_SLOT', 'ADD_PHOTOS', 'REVIEW', 'SUBMITTED')`,
     ),
     check(
       'telegram_intake_sessions_language_ck',
@@ -401,7 +411,10 @@ export const serviceRequests = pgTable(
     description: text('description').notNull(),
     id: uuid('id').primaryKey().defaultRandom(),
     informationRequest: text('information_request'),
+    preferredVisitEnd: timestamp('preferred_visit_end', { mode: 'date', withTimezone: true }),
+    preferredVisitStart: timestamp('preferred_visit_start', { mode: 'date', withTimezone: true }),
     rejectionReason: text('rejection_reason'),
+    residentDeclaredUrgency: residentDeclaredUrgencyEnum('resident_declared_urgency'),
     requesterUserId: uuid('requester_user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
@@ -416,6 +429,7 @@ export const serviceRequests = pgTable(
     ticketNumber: varchar('ticket_number', { length: 30 }).notNull(),
     updatedAt,
     version: integer('version').notNull().default(0),
+    visitAsSoonAsPossible: boolean('visit_as_soon_as_possible').notNull().default(false),
   },
   (table) => [
     uniqueIndex('service_requests_ticket_number_uq').on(table.ticketNumber),
@@ -424,6 +438,14 @@ export const serviceRequests = pgTable(
     index('service_requests_requester_idx').on(table.requesterUserId, table.submittedAt),
     check('service_requests_version_ck', sql`${table.version} >= 0`),
     check('service_requests_description_ck', sql`length(trim(${table.description})) > 0`),
+    check(
+      'service_requests_visit_window_pair_ck',
+      sql`(${table.preferredVisitStart} is null and ${table.preferredVisitEnd} is null) or (${table.preferredVisitStart} is not null and ${table.preferredVisitEnd} is not null and ${table.preferredVisitEnd} > ${table.preferredVisitStart})`,
+    ),
+    check(
+      'service_requests_visit_choice_ck',
+      sql`not ${table.visitAsSoonAsPossible} or (${table.preferredVisitStart} is null and ${table.preferredVisitEnd} is null)`,
+    ),
   ],
 );
 

@@ -253,6 +253,7 @@ export function createStaffBot(options: StaffBotOptions): Bot {
         accept: `/accept ${reference}`,
         approve: `/approve ${reference}`,
         duplicates: `/duplicates ${reference}`,
+        details: `/details ${reference}`,
         register: `/register ${reference}`,
         retrynotification: `/retrynotification ${reference}`,
         startrework: `/startrework ${reference}`,

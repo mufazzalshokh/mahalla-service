@@ -42,8 +42,9 @@ async function reply(ctx: Context, response: TelegramReply): Promise<void> {
   }
   if (response.inlineActions.length > 0) {
     const keyboard = new InlineKeyboard();
-    for (const action of response.inlineActions) {
-      keyboard.text(action.label, action.data).row();
+    for (const [index, action] of response.inlineActions.entries()) {
+      keyboard.text(action.label, action.data);
+      if ((index + 1) % response.actionColumns === 0) keyboard.row();
     }
     await ctx.reply(response.text, { reply_markup: keyboard });
     return;

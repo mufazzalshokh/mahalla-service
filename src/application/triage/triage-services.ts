@@ -16,6 +16,7 @@ import type {
   DuplicateSuggestionRecord,
   OrderRegistrationResult,
   PriorityAssessmentRecord,
+  ResidentRequestDetails,
   TriageRepository,
   TriageRequestRecord,
 } from './triage-repository.js';
@@ -147,5 +148,14 @@ export class ListValidationQueueService {
       .map(({ serviceAreaId }) => serviceAreaId);
     if (scopes.length === 0) throw new AuthorizationError('request.read.area');
     return this.repository.listValidationQueue(scopes);
+  }
+
+  async details(ticketNumber: string, principal: Principal): Promise<ResidentRequestDetails> {
+    const details = await this.repository.findResidentRequestDetails(ticketNumber);
+    if (!details) throw new EntityNotFoundError('ServiceRequest', ticketNumber);
+    if (!hasPermission(principal, 'request.read.area', details.serviceAreaId)) {
+      throw new AuthorizationError('request.read.area');
+    }
+    return details;
   }
 }
