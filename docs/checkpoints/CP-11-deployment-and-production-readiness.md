@@ -39,11 +39,11 @@ monitoring remain deliberately excluded.
 - Production Compose resolves with immutable dummy release/image digests and external secret mounts:
   PASS.
 - Bash deployment/backup/monitor syntax, Node smoke syntax and loopback release smoke: PASS.
-- A complete local PostgreSQL rerun exposed old fixtures that depended on the wall clock crossing 28
-  July 2026; they were converted to relative dates. The clean rerun and runtime image pull are
-  delegated to the mandatory GitHub CI gate because Docker Hub repeatedly returned TLS handshake
-  timeouts locally and the installed Windows service could not be started without host administrator
-  access.
+- The clean GitHub Actions gate for commit `ea8ccf7` passed `pnpm check`, Bash/Node syntax, production
+  Compose rendering, runtime image build, all 213 PostgreSQL-backed coverage tests and the
+  high-severity dependency audit. This supplied the isolated container/database evidence after the
+  developer machine experienced Docker Hub TLS timeouts and could not start its local PostgreSQL
+  service without host administrator access.
 
 ## 5. Safety and privacy
 
@@ -69,9 +69,9 @@ isolated database first; never edit migration history or drop production tables 
 
 ## 8. Recommended next action
 
-Wait for the GitHub CI release gate. After it passes, approve CP-11 and use the existing synthetic bot
-demo to sell the paid pilot. Execute the external readiness checklist only after the customer funds the
-host. CP-12 ecosystem integrations remain future work, not a prerequisite for the first sale.
+Approve CP-11 and use the existing synthetic bot demo to sell the paid pilot. Execute the external
+readiness checklist only after the customer funds the host. CP-12 ecosystem integrations remain
+future work, not a prerequisite for the first sale.
 
 ## 9. Approval
 
