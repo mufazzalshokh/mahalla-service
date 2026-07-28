@@ -28,6 +28,10 @@ import { StaffOperationsService } from './application/triage/staff-operations-se
 import { EnvironmentValidationError, loadEnvironment } from './config/environment.js';
 import { createDatabaseClient, type DatabaseClient } from './infrastructure/database/client.js';
 import { createPostgresDependency } from './infrastructure/database/postgres-readiness.js';
+import {
+  tryAcquirePostgresSessionLease,
+  type PostgresSessionLease,
+} from './infrastructure/database/postgres-session-lease.js';
 import { PostgresResidentIntakeUnitOfWork } from './infrastructure/intake/postgres-resident-intake-unit-of-work.js';
 import { PostgresPrincipalProvider } from './infrastructure/identity/postgres-principal-provider.js';
 import { StaffAccessService } from './application/identity/staff-access-service.js';
@@ -59,6 +63,7 @@ async function start(): Promise<void> {
     healthService,
     logLevel: environment.LOG_LEVEL,
     metrics,
+    releaseId: environment.RELEASE_ID,
     serviceName: environment.SERVICE_NAME,
   });
   const alerts = new OperationalAlerts(metrics, (event) => {
@@ -69,6 +74,16 @@ async function start(): Promise<void> {
   let stopStaffBot: (() => Promise<void>) | undefined;
   let stopAutomation: (() => Promise<void>) | undefined;
   let notificationService: NotificationService | undefined;
+  let botConsumerLease: PostgresSessionLease | undefined;
+
+  app.addHook('onClose', async () => {
+    if (stopAutomation) await stopAutomation();
+    if (stopResidentBot) await stopResidentBot();
+    if (stopStaffBot) await stopStaffBot();
+    if (botConsumerLease) await botConsumerLease.close();
+    if (applicationDatabase) await applicationDatabase.close();
+    await database.close();
+  });
 
   if (
     environment.RESIDENT_BOT_ENABLED ||
@@ -80,6 +95,19 @@ async function start(): Promise<void> {
       new PostgresNotificationRepository(applicationDatabase.db),
       new TelegramNotificationSender(environment.RESIDENT_BOT_TOKEN, environment.STAFF_BOT_TOKEN),
     );
+  }
+
+  if (
+    environment.BOT_CONSUMER_LOCK_ENABLED &&
+    (environment.RESIDENT_BOT_ENABLED || environment.STAFF_BOT_ENABLED) &&
+    applicationDatabase
+  ) {
+    botConsumerLease = await tryAcquirePostgresSessionLease(applicationDatabase.sql, 72_011_001n);
+    if (!botConsumerLease) {
+      await app.close();
+      throw new Error('Telegram consumer lease is already held');
+    }
+    app.log.info('Exclusive Telegram consumer lease acquired');
   }
 
   if (environment.RESIDENT_BOT_ENABLED && environment.RESIDENT_BOT_TOKEN && applicationDatabase) {
@@ -216,14 +244,6 @@ async function start(): Promise<void> {
     );
   }
 
-  app.addHook('onClose', async () => {
-    if (stopAutomation) await stopAutomation();
-    if (stopResidentBot) await stopResidentBot();
-    if (stopStaffBot) await stopStaffBot();
-    if (applicationDatabase) await applicationDatabase.close();
-    await database.close();
-  });
-
   let closing = false;
   const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     if (closing) return;
@@ -235,7 +255,13 @@ async function start(): Promise<void> {
   process.once('SIGINT', () => void shutdown('SIGINT'));
   process.once('SIGTERM', () => void shutdown('SIGTERM'));
 
-  await app.listen({ host: environment.HOST, port: environment.PORT });
+  try {
+    await app.listen({ host: environment.HOST, port: environment.PORT });
+  } catch (error: unknown) {
+    await app.close();
+    throw error;
+  }
+  app.log.info({ release: environment.RELEASE_ID }, 'Application release started');
 }
 
 try {

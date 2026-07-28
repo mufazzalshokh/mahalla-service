@@ -41,7 +41,8 @@ import { PostgresOrderRepository } from '../src/infrastructure/orders/postgres-o
 import { PostgresQualityRepository } from '../src/infrastructure/quality/postgres-quality-repository.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
-const fixedNow = new Date('2026-07-27T10:00:00Z');
+const fixedNow = new Date(Date.now() + 60_000);
+const dayInMilliseconds = 86_400_000;
 
 describe.runIf(Boolean(databaseUrl))('CP-06 quality and complaint persistence', () => {
   let client: DatabaseClient;
@@ -167,6 +168,8 @@ describe.runIf(Boolean(databaseUrl))('CP-06 quality and complaint persistence', 
     orderNumber: string;
   }> {
     const suffix = randomUUID().slice(0, 16).toUpperCase();
+    const assignedAt = new Date(fixedNow.getTime() - dayInMilliseconds);
+    const initialDueAt = new Date(fixedNow.getTime() + 3 * dayInMilliseconds);
     const [address] = await client.db
       .insert(addresses)
       .values({ line1: 'CP06 synthetic address', serviceAreaId: areaId })
@@ -189,7 +192,7 @@ describe.runIf(Boolean(databaseUrl))('CP-06 quality and complaint persistence', 
       .values({
         categoryId,
         currentExecutorUserId: executorUserId,
-        dueAt: new Date('2026-07-30T10:00:00Z'),
+        dueAt: initialDueAt,
         orderNumber: `O-${suffix}`,
         serviceAreaId: areaId,
         status: 'AWAITING_ACCEPTANCE',
@@ -200,12 +203,12 @@ describe.runIf(Boolean(databaseUrl))('CP-06 quality and complaint persistence', 
       .insert(orderRequestLinks)
       .values({ orderId: created.id, requestId: request.id });
     await client.db.insert(assignments).values({
-      assignedAt: new Date('2026-07-26T10:00:00Z'),
+      assignedAt,
       assignedByUserId: operatorUserId,
-      dueAt: new Date('2026-07-30T10:00:00Z'),
+      dueAt: initialDueAt,
       executorUserId,
       orderId: created.id,
-      respondedAt: new Date('2026-07-26T10:05:00Z'),
+      respondedAt: new Date(assignedAt.getTime() + 300_000),
       status: 'COMPLETED',
     });
     return { id: created.id, orderNumber: `O-${suffix}` };
@@ -254,7 +257,7 @@ describe.runIf(Boolean(databaseUrl))('CP-06 quality and complaint persistence', 
       .from(orderWarranties)
       .where(eq(orderWarranties.orderId, order.id));
     expect(warranty).toMatchObject({ startsAt: fixedNow, warrantyDays: 7 });
-    expect(warranty?.endsAt).toEqual(new Date('2026-08-03T10:00:00Z'));
+    expect(warranty?.endsAt).toEqual(new Date(fixedNow.getTime() + 7 * dayInMilliseconds));
 
     await quality.feedback(order.orderNumber, 5, 'Muammo to‘liq hal qilindi', resident);
     await expect(
@@ -308,7 +311,7 @@ describe.runIf(Boolean(databaseUrl))('CP-06 quality and complaint persistence', 
       .from(orderExecutionSlaClocks)
       .where(eq(orderExecutionSlaClocks.orderId, order.id));
     expect(clock).toMatchObject({
-      dueAt: new Date('2026-07-28T10:00:00Z'),
+      dueAt: new Date(fixedNow.getTime() + dayInMilliseconds),
       startedAt: null,
       stoppedAt: null,
     });

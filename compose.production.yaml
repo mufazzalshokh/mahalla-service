@@ -1,0 +1,144 @@
+name: mahalla-service-production
+
+x-logging: &bounded-logging
+  driver: local
+  options:
+    max-file: '5'
+    max-size: 10m
+
+x-app-image: &app-image
+  image: mahalla-service:${MCK_RELEASE:?Set MCK_RELEASE to the full deployed Git SHA}
+  build:
+    context: .
+    target: runtime
+    args:
+      MCK_RELEASE: ${MCK_RELEASE}
+      NODE_IMAGE: ${NODE_IMAGE:?Pin NODE_IMAGE by digest}
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?Pin POSTGRES_IMAGE by digest}
+    environment:
+      POSTGRES_DB: ${MCK_DB_NAME:-mck}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_USER: ${MCK_DB_USER:-mck}
+    secrets:
+      - postgres_password
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+    stop_grace_period: 60s
+    volumes:
+      - production-postgres-data:/var/lib/postgresql/data
+    networks:
+      - database
+    logging: *bounded-logging
+    mem_limit: 768m
+    pids_limit: 200
+    security_opt:
+      - no-new-privileges:true
+
+  migrate:
+    <<: *app-image
+    command: ['node', 'dist/infrastructure/database/migrate.js']
+    environment:
+      DATABASE_URL_FILE: /run/secrets/database_url
+      NODE_ENV: production
+    secrets:
+      - database_url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - database
+    restart: 'no'
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging: *bounded-logging
+    mem_limit: 256m
+    pids_limit: 100
+
+  app:
+    <<: *app-image
+    environment:
+      AUTOMATION_ENABLED: 'true'
+      AUTOMATION_POLL_SECONDS: ${AUTOMATION_POLL_SECONDS:-30}
+      BOT_CONSUMER_LOCK_ENABLED: 'true'
+      DATABASE_URL_FILE: /run/secrets/database_url
+      HOST: 0.0.0.0
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      NODE_ENV: production
+      PORT: 3000
+      RELEASE_ID: ${MCK_RELEASE}
+      RESIDENT_BOT_ENABLED: 'true'
+      RESIDENT_BOT_RATE_LIMIT: ${RESIDENT_BOT_RATE_LIMIT:-30}
+      RESIDENT_BOT_TOKEN_FILE: /run/secrets/resident_bot_token
+      SERVICE_NAME: mahalla-service
+      STAFF_BOT_ENABLED: 'true'
+      STAFF_BOT_RATE_LIMIT: ${STAFF_BOT_RATE_LIMIT:-60}
+      STAFF_BOT_TOKEN_FILE: /run/secrets/staff_bot_token
+      TELEGRAM_RATE_LIMIT_WINDOW_SECONDS: ${TELEGRAM_RATE_LIMIT_WINDOW_SECONDS:-60}
+    secrets:
+      - database_url
+      - resident_bot_token
+      - staff_bot_token
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - 127.0.0.1:${MCK_HEALTH_PORT:-3000}:3000
+    networks:
+      - database
+      - egress
+    restart: unless-stopped
+    stop_grace_period: 30s
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging: *bounded-logging
+    mem_limit: 512m
+    pids_limit: 200
+
+secrets:
+  database_url:
+    file: ${MCK_SECRET_DIR:?Set MCK_SECRET_DIR}/database_url
+  postgres_password:
+    file: ${MCK_SECRET_DIR:?Set MCK_SECRET_DIR}/postgres_password
+  resident_bot_token:
+    file: ${MCK_SECRET_DIR:?Set MCK_SECRET_DIR}/resident_bot_token
+  staff_bot_token:
+    file: ${MCK_SECRET_DIR:?Set MCK_SECRET_DIR}/staff_bot_token
+
+networks:
+  database:
+    internal: true
+  egress:
+
+volumes:
+  production-postgres-data:
+    name: mahalla-service-production-postgres-data

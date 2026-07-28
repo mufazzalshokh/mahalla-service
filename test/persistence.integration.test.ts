@@ -31,6 +31,8 @@ import { PostgresExecutorEligibility } from '../src/infrastructure/orders/postgr
 import { PostgresOrderRepository } from '../src/infrastructure/orders/postgres-order-repository.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
+const fixedNow = new Date(Date.now() + 60_000);
+const futureDueAt = new Date(fixedNow.getTime() + 86_400_000);
 
 describe.runIf(Boolean(databaseUrl))('CP-02 PostgreSQL persistence', () => {
   let client: DatabaseClient;
@@ -126,7 +128,7 @@ describe.runIf(Boolean(databaseUrl))('CP-02 PostgreSQL persistence', () => {
       service: new TransitionOrderService(
         new PostgresOrderRepository(client.db),
         new PostgresExecutorEligibility(client.db),
-        () => new Date('2026-07-27T10:00:00.000Z'),
+        () => fixedNow,
       ),
     };
   }
@@ -174,7 +176,7 @@ describe.runIf(Boolean(databaseUrl))('CP-02 PostgreSQL persistence', () => {
       {
         data: {
           assigneeUserId: executorUserId,
-          dueAt: new Date('2026-07-28T10:00:00.000Z'),
+          dueAt: futureDueAt,
         },
         expectedVersion: 0,
         orderId,
@@ -207,7 +209,7 @@ describe.runIf(Boolean(databaseUrl))('CP-02 PostgreSQL persistence', () => {
     const command = {
       data: {
         assigneeUserId: executorUserId,
-        dueAt: new Date('2026-07-28T10:00:00.000Z'),
+        dueAt: futureDueAt,
       },
       expectedVersion: 0,
       orderId,

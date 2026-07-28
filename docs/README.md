@@ -5,8 +5,8 @@ This directory is the source of truth for the incremental Mahalla Service Compan
 
 ## Current checkpoint
 
-CP-00 through CP-10 are approved. CP-11 production readiness and first paid pilot deployment is
-next.
+CP-00 through CP-10 are approved. CP-11 production readiness is implemented and awaiting approval;
+external paid-pilot go-live remains explicitly blocked until the readiness checklist is approved.
 
 ## Documents
 
@@ -39,6 +39,8 @@ next.
 - [Resident bot runbook](runbooks/resident-bot.md)
 - [Staff bot runbook](runbooks/staff-bot.md)
 - [Commercial staff-bot runbook](runbooks/commercial-bot.md)
+- [Production deployment and rollback](runbooks/production-deployment.md)
+- [Production-readiness checklist](runbooks/production-readiness-checklist.md)
 - [Backup and restore rehearsal](runbooks/backup-and-restore.md)
 - [Pilot incident response](runbooks/incident-response.md)
 - [Version control and checkpoint publishing](runbooks/version-control.md)
@@ -55,6 +57,7 @@ next.
 - [ADR-0009: Live operational reporting and audited PDCA](adr/ADR-0009-live-operational-reporting-and-audited-pdca.md)
 - [ADR-0010: Manual commercial ledger and immutable text documents](adr/ADR-0010-manual-commercial-ledger-and-immutable-text-documents.md)
 - [ADR-0011: Zero-cost pilot hardening and operational signals](adr/ADR-0011-zero-cost-pilot-hardening.md)
+- [ADR-0012: Single-host production deployment after the first sale](adr/ADR-0012-single-host-production-deployment.md)
 - [CP-00 checkpoint record](checkpoints/CP-00-discovery.md)
 - [CP-01 checkpoint record](checkpoints/CP-01-engineering-foundation.md)
 - [CP-02 checkpoint record](checkpoints/CP-02-domain-model-and-persistence.md)
@@ -67,6 +70,7 @@ next.
 - [CP-08.1 checkpoint record](checkpoints/CP-08.1-bilingual-button-telegram-ux.md)
 - [CP-09 checkpoint record](checkpoints/CP-09-contracts-documents-and-finance-foundation.md)
 - [CP-10 checkpoint record](checkpoints/CP-10-security-reliability-and-observability-hardening.md)
+- [CP-11 checkpoint record](checkpoints/CP-11-deployment-and-production-readiness.md)
 
 ## Evidence hierarchy
 

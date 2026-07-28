@@ -206,7 +206,7 @@ describe.runIf(Boolean(databaseUrl))('CP-07 notification and automation persiste
   it('claims without duplication and records delivery attempts', async () => {
     const first = new PostgresNotificationRepository(client.db);
     const second = new PostgresNotificationRepository(client.db);
-    const now = new Date('2026-07-28T10:05:00Z');
+    const now = new Date(Date.now() + 60_000);
     const [a, b] = await Promise.all([
       first.claimBatch('worker-a', now, 50, 120),
       second.claimBatch('worker-b', now, 50, 120),
@@ -242,7 +242,7 @@ describe.runIf(Boolean(databaseUrl))('CP-07 notification and automation persiste
         send: (): Promise<never> =>
           Promise.reject(new NotificationDeliveryError('TELEGRAM_403', false)),
       },
-      () => new Date('2026-07-28T10:10:00Z'),
+      () => new Date(Date.now() + 60_000),
     );
     const result = await service.processBatch('worker-dead');
     expect(result.deadLettered).toBe(1);

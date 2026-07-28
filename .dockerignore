@@ -1,6 +1,8 @@
 .git
 .github
 .env*
+deploy/production.env
+deploy/secrets
 node_modules
 dist
 coverage

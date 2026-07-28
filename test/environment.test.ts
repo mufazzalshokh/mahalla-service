@@ -12,11 +12,13 @@ describe('loadEnvironment', () => {
     expect(environment).toEqual({
       AUTOMATION_ENABLED: false,
       AUTOMATION_POLL_SECONDS: 30,
+      BOT_CONSUMER_LOCK_ENABLED: false,
       DATABASE_URL: 'postgresql://user:password@localhost:5432/mck',
       HOST: '127.0.0.1',
       LOG_LEVEL: 'info',
       NODE_ENV: 'development',
       PORT: 3000,
+      RELEASE_ID: 'development',
       RESIDENT_BOT_ENABLED: false,
       RESIDENT_BOT_RATE_LIMIT: 30,
       SERVICE_NAME: 'mahalla-service',
@@ -111,5 +113,65 @@ describe('loadEnvironment', () => {
         DATABASE_URL: 'postgresql://user:password@localhost:5432/mck',
       }),
     ).toThrowError(/RESIDENT_BOT_TOKEN.*STAFF_BOT_TOKEN/);
+  });
+
+  it('loads production secrets from files without retaining file paths', () => {
+    const secrets = new Map([
+      ['/run/secrets/database_url', 'postgresql://mck:private@postgres:5432/mck\n'],
+      ['/run/secrets/resident_bot_token', `123456:${'a'.repeat(30)}\n`],
+      ['/run/secrets/staff_bot_token', `654321:${'b'.repeat(30)}\n`],
+    ]);
+    const environment = loadEnvironment(
+      {
+        DATABASE_URL_FILE: '/run/secrets/database_url',
+        RESIDENT_BOT_ENABLED: 'true',
+        RESIDENT_BOT_TOKEN_FILE: '/run/secrets/resident_bot_token',
+        STAFF_BOT_ENABLED: 'true',
+        STAFF_BOT_TOKEN_FILE: '/run/secrets/staff_bot_token',
+      },
+      (path) => {
+        const value = secrets.get(path);
+        if (!value) throw new Error('missing');
+        return value;
+      },
+    );
+
+    expect(environment).toMatchObject({
+      DATABASE_URL: 'postgresql://mck:private@postgres:5432/mck',
+      RESIDENT_BOT_ENABLED: true,
+      STAFF_BOT_ENABLED: true,
+    });
+    expect(environment).not.toHaveProperty('DATABASE_URL_FILE');
+  });
+
+  it('rejects ambiguous, unreadable, or shared bot secrets without leaking a path', () => {
+    expect(() =>
+      loadEnvironment(
+        {
+          DATABASE_URL: 'postgresql://mck:private@postgres:5432/mck',
+          DATABASE_URL_FILE: '/private/database_url',
+        },
+        () => 'unused',
+      ),
+    ).toThrowError(/DATABASE_URL_FILE/);
+
+    try {
+      loadEnvironment({ DATABASE_URL_FILE: '/private/secret-location' }, () => {
+        throw new Error('denied');
+      });
+    } catch (error: unknown) {
+      expect((error as Error).message).not.toContain('/private/secret-location');
+    }
+
+    const sharedToken = `123456:${'a'.repeat(30)}`;
+    expect(() =>
+      loadEnvironment({
+        DATABASE_URL: 'postgresql://mck:private@postgres:5432/mck',
+        RESIDENT_BOT_ENABLED: 'true',
+        RESIDENT_BOT_TOKEN: sharedToken,
+        STAFF_BOT_ENABLED: 'true',
+        STAFF_BOT_TOKEN: sharedToken,
+      }),
+    ).toThrowError(/different/);
   });
 });

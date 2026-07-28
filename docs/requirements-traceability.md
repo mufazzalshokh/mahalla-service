@@ -95,3 +95,15 @@ The matrix must be updated in every checkpoint. A requirement cannot become
 | Warranty and complaint flow (BR-019, BR-023)          | dated warranty, human complaint code, review deadline and status  | in-warranty classification and no-auto-reopen assertions   | Implemented        |
 | Satisfaction (BR-019)                                 | bounded 1–5 rating and optional comment                           | range and one-response constraint tests                    | Implemented        |
 | Competing decision safety (BR-017, BR-023)            | optimistic order compare-and-set and transactional audit          | simultaneous accept/rework integration test                | Implemented        |
+
+## CP-11 implementation evidence
+
+| Production requirement                   | Implemented artifact                                                    | Verification                                         | Status after CP-11 implementation |
+| ---------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------- |
+| Reproducible production container        | multi-stage non-root image, digest inputs, immutable release label      | build, Compose render and release health smoke       | Implemented; host rehearsal due   |
+| Protected environment and secrets        | external secret files and production deployment validator               | file/direct conflict and deployment-policy tests     | Implemented                       |
+| Migration-before-start and safe rollback | one-shot migration dependency, predeploy backup and rollback runbook    | Compose contract and migration/integration suites    | Implemented                       |
+| One active long-polling consumer         | PostgreSQL session advisory lease and production fail-closed setting    | real two-client acquire/deny/release/reacquire test  | Implemented                       |
+| Monitoring and actionable failure route  | loopback readiness/metrics and fixed private-Telegram host alert script | syntax, endpoint and live local health checks        | Implemented; responder test due   |
+| Backup and production recovery           | encrypted dump script, checksum, off-host handoff and restore runbook   | CP-10 real restore; production artifact transfer due | Deployment-ready, not yet live    |
+| Explicit go-live control                 | readiness checklist with policy, access, data, smoke and rollback gates | stakeholder evidence required per checklist          | External go-live blocked          |

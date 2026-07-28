@@ -96,3 +96,15 @@ controller and application behavior are tested without requiring a live bot toke
 - Existing readiness degradation, outbox retry/dead-letter recovery, optimistic-concurrency and
   graceful-shutdown tests remain mandatory regression gates.
 - Full quality, coverage, integration, build, migration-consistency and dependency-audit gates.
+
+## CP-11 gates
+
+- File-secret loading, direct/file conflict, shared-token rejection and safe failure tests.
+- Production policy tests for immutable release SHA, digest-pinned images, internal database URL,
+  matching database credentials, absolute separated paths, alert ownership and secret boundaries.
+- Real two-client PostgreSQL session-lease contention, release and reacquisition test.
+- Production Compose rendering, Bash/Node syntax checks and production TypeScript build.
+- Runtime image build and non-root/read-only container inspection when Docker is available.
+- One-shot migration plus health/readiness/metrics/release smoke against an isolated production-style
+  Compose stack before external go-live.
+- Full existing quality, coverage, integration, migration and dependency-advisory gates.

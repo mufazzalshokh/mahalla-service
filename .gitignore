@@ -4,6 +4,9 @@ coverage/
 .env
 .env.*
 !.env.example
+deploy/production.env
+deploy/secrets/*
+!deploy/secrets/README.md
 *.log
 .cp*-pgdata/
 *.tsbuildinfo

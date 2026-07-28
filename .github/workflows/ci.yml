@@ -43,6 +43,14 @@ jobs:
       - run: corepack prepare pnpm@10.33.0 --activate
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - run: bash -n scripts/deploy-production.sh scripts/backup-production.sh scripts/monitor-production.sh
+      - run: docker compose -f compose.production.yaml config --quiet
+        env:
+          MCK_RELEASE: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          MCK_SECRET_DIR: ${{ github.workspace }}/test/fixtures/production-secrets
+          NODE_IMAGE: node@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+          POSTGRES_IMAGE: postgres@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      - run: docker build --target runtime --build-arg MCK_RELEASE=${{ github.sha }} -t mahalla-service:${{ github.sha }} .
       - run: pnpm test:coverage
         env:
           TEST_DATABASE_URL: postgresql://mck_test:mck_test@127.0.0.1:5432/mck_test

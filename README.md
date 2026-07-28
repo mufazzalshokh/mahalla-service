@@ -3,8 +3,9 @@
 Telegram-first order portfolio and service-management platform for a Mahalla
 Service Company (MCK).
 
-The repository is delivered checkpoint by checkpoint. CP-00 through CP-09 are approved. CP-10
-security, reliability and observability hardening is next.
+The repository is delivered checkpoint by checkpoint. CP-00 through CP-10 are approved. CP-11
+production readiness is implemented and awaiting approval; real-data go-live still requires the
+approved checklist.
 
 ## Prerequisites
 
@@ -28,6 +29,10 @@ Then inspect:
 
 See [local development](docs/runbooks/local-development.md) and the
 [documentation index](docs/README.md) for details.
+
+The paid-pilot package uses the separate hardened `compose.production.yaml`. See the
+[production deployment runbook](docs/runbooks/production-deployment.md) and
+[production-readiness checklist](docs/runbooks/production-readiness-checklist.md).
 
 ## Quality gates
 

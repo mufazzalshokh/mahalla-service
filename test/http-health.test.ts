@@ -98,6 +98,24 @@ describe('HTTP health boundary', () => {
     expect(response.json()).toEqual({ service: 'logged-service', status: 'ok' });
   });
 
+  it('exposes the bounded release identifier in liveness', async () => {
+    const app = buildApp({
+      healthService: new HealthService([]),
+      logger: false,
+      releaseId: 'abc1234',
+      serviceName: 'release-service',
+    });
+    apps.push(app);
+
+    const response = await app.inject({ method: 'GET', url: '/health' });
+
+    expect(response.json()).toEqual({
+      release: 'abc1234',
+      service: 'release-service',
+      status: 'ok',
+    });
+  });
+
   it('adds hardened response headers and exports low-cardinality metrics', async () => {
     const metrics = new OperationalMetrics();
     const app = buildApp({

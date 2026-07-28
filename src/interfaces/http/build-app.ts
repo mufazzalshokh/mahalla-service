@@ -19,6 +19,7 @@ export interface BuildAppOptions {
   readonly logLevel?: string;
   readonly logger?: boolean;
   readonly metrics?: OperationalMetrics;
+  readonly releaseId?: string;
   readonly serviceName: string;
 }
 
@@ -81,6 +82,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   }
 
   app.get('/health', () => ({
+    ...(options.releaseId ? { release: options.releaseId } : {}),
     service: options.serviceName,
     status: 'ok',
   }));
