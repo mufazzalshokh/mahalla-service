@@ -34,6 +34,7 @@ production-readiness checklist is completed and real-data operation is separatel
 - [Commercial records and documents](architecture/commercial-and-documents.md)
 - [Pilot deployment](architecture/deployment.md)
 - [Testing strategy](testing-strategy.md)
+- [Customer demonstration guide](runbooks/customer-demo.md)
 - [Local development runbook](runbooks/local-development.md)
 - [Database migration runbook](runbooks/database-migrations.md)
 - [Resident bot runbook](runbooks/resident-bot.md)
