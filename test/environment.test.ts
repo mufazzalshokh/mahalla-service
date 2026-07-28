@@ -18,8 +18,11 @@ describe('loadEnvironment', () => {
       NODE_ENV: 'development',
       PORT: 3000,
       RESIDENT_BOT_ENABLED: false,
+      RESIDENT_BOT_RATE_LIMIT: 30,
       SERVICE_NAME: 'mahalla-service',
       STAFF_BOT_ENABLED: false,
+      STAFF_BOT_RATE_LIMIT: 60,
+      TELEGRAM_RATE_LIMIT_WINDOW_SECONDS: 60,
     });
     expect(Object.isFrozen(environment)).toBe(true);
   });

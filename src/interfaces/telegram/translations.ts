@@ -47,6 +47,7 @@ const resources: Readonly<Record<SupportedLanguage, Readonly<Record<string, stri
     photo_added: '📷 Фотография принята ({count}/3).',
     photo_invalid: 'Размер фотографии не должен превышать 10 МБ.',
     photo_limit: 'Можно отправить не более 3 фотографий.',
+    rate_limited: 'Слишком много действий. Повторите через {seconds} сек.',
     privacy_notice:
       '🔐 Шаг 1/10. Конфиденциальность ({version}): имя, телефон, адрес, желаемое время и фотографии сохраняются только для обработки заявки. Вы согласны?',
     review_request:
@@ -105,6 +106,7 @@ const resources: Readonly<Record<SupportedLanguage, Readonly<Record<string, stri
     photo_added: '📷 Расм қабул қилинди ({count}/3).',
     photo_invalid: 'Расм ҳажми 10 MB дан ошмаслиги керак.',
     photo_limit: 'Энг кўпи 3 та расм қабул қилинади.',
+    rate_limited: 'Жуда кўп уриниш. {seconds} сониядан кейин қайта уриниб кўринг.',
     privacy_notice:
       '🔐 1/10-қадам. Махфийлик ({version}): исм, телефон, манзил, қулай вақт ва расмлар сўровни бажариш учун сақланади. Розимисиз?',
     review_request:
@@ -165,6 +167,7 @@ const resources: Readonly<Record<SupportedLanguage, Readonly<Record<string, stri
     photo_added: '📷 Rasm qabul qilindi ({count}/3).',
     photo_invalid: 'Rasm hajmi 10 MB dan oshmasligi kerak.',
     photo_limit: 'Eng ko‘pi 3 ta rasm qabul qilinadi.',
+    rate_limited: 'Juda ko‘p urinish. {seconds} soniyadan keyin qayta urinib ko‘ring.',
     privacy_notice:
       '🔐 1/10-qadam. Maxfiylik ({version}): ism, telefon, manzil, qulay vaqt va rasmlar faqat so‘rovni bajarish uchun saqlanadi. Rozimisiz?',
     review_request:

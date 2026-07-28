@@ -1,4 +1,5 @@
 import { DomainRuleError } from '../shared/domain-errors.js';
+import { assertSafeTelegramPhotoReference } from '../shared/telegram-photo-policy.js';
 
 export const workEvidencePhases = ['BEFORE', 'AFTER'] as const;
 export type WorkEvidencePhase = (typeof workEvidencePhases)[number];
@@ -24,12 +25,7 @@ export function validateWorkLogNote(note: string): string {
 }
 
 export function validateWorkEvidence(input: WorkEvidenceInput, existingCount: number): void {
-  if (!input.fileId.trim() || !input.fileUniqueId.trim()) {
-    throw new DomainRuleError('WORK_EVIDENCE_INVALID', 'Telegram file identity is required');
-  }
-  if (!Number.isInteger(input.fileSize) || input.fileSize <= 0 || input.fileSize > 10_485_760) {
-    throw new DomainRuleError('WORK_EVIDENCE_SIZE_INVALID', 'Evidence must be at most 10 MB');
-  }
+  assertSafeTelegramPhotoReference(input);
   if (input.mediaType !== 'image/jpeg' && input.mediaType !== 'image/png') {
     throw new DomainRuleError(
       'WORK_EVIDENCE_TYPE_INVALID',

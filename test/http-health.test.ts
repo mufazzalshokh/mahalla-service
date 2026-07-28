@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyError } from 'fastify';
 
 import { HealthService } from '../src/application/health/health-service.js';
+import { OperationalMetrics } from '../src/application/observability/operational-metrics.js';
 import type { ReadinessProbe } from '../src/application/health/readiness-probe.js';
 import { buildApp } from '../src/interfaces/http/build-app.js';
 
@@ -95,6 +96,33 @@ describe('HTTP health boundary', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ service: 'logged-service', status: 'ok' });
+  });
+
+  it('adds hardened response headers and exports low-cardinality metrics', async () => {
+    const metrics = new OperationalMetrics();
+    const app = buildApp({
+      healthService: new HealthService([]),
+      logger: false,
+      metrics,
+      serviceName: 'metrics-service',
+    });
+    apps.push(app);
+
+    const health = await app.inject({ method: 'GET', url: '/health' });
+    const response = await app.inject({ method: 'GET', url: '/metrics' });
+
+    expect(health.headers).toMatchObject({
+      'cache-control': 'no-store',
+      'content-security-policy': "default-src 'none'",
+      'referrer-policy': 'no-referrer',
+      'x-content-type-options': 'nosniff',
+    });
+    expect(health.headers['x-request-id']).toBeTruthy();
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('text/plain');
+    expect(response.body).toContain(
+      'mck_http_requests_total{route="/health",status_class="2xx"} 1',
+    );
   });
 
   it('returns a safe internal error without leaking its message', async () => {

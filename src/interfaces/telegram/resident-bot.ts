@@ -22,9 +22,15 @@ import {
 } from './resident-menu.js';
 import { PhotoAlbumBuffer } from './photo-album-buffer.js';
 import { TransientStore } from './transient-store.js';
+import type { UpdateRateLimiter } from './update-rate-limiter.js';
 
 export interface ResidentBotOptions {
   readonly onError?: (error: Error, updateId: number) => void;
+  readonly onUpdate?: (
+    outcome: 'failed' | 'rate_limited' | 'succeeded',
+    durationMilliseconds: number,
+  ) => void;
+  readonly rateLimiter?: UpdateRateLimiter;
   readonly service: HandleResidentUpdateService;
   readonly respondToInformation?: RespondToInformationService;
   readonly quality?: ResidentQualityService;
@@ -104,6 +110,29 @@ export function createResidentBot(options: ResidentBotOptions): Bot {
     options.onError?.(normalized, ctx.update.update_id);
     await ctx.reply(translate(language(ctx) === 'ru' ? 'ru' : 'uz-Latn', 'unexpected_error'));
   };
+
+  bot.use(async (ctx, next) => {
+    const startedAt = performance.now();
+    try {
+      if (ctx.from && options.rateLimiter) {
+        const decision = options.rateLimiter.consume(ctx.from.id.toString());
+        if (!decision.allowed) {
+          options.onUpdate?.('rate_limited', performance.now() - startedAt);
+          await ctx.reply(
+            translate(language(ctx) === 'ru' ? 'ru' : 'uz-Latn', 'rate_limited', {
+              seconds: String(decision.retryAfterSeconds),
+            }),
+          );
+          return;
+        }
+      }
+      await next();
+      options.onUpdate?.('succeeded', performance.now() - startedAt);
+    } catch (error: unknown) {
+      options.onUpdate?.('failed', performance.now() - startedAt);
+      throw error;
+    }
+  });
 
   interface PhotoEnvelope {
     readonly ctx: Context;

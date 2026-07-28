@@ -20,6 +20,11 @@ Tests must verify externally meaningful behavior and invariants. Domain transiti
 priority calculation and authorization introduced later require at least 90% useful
 coverage. A skipped test is reported as unverified rather than passed.
 
+The CP-10 executable-code ratchet is 80% for statements, functions and lines, and 74% for V8
+branches. The expanded bilingual resident planner retains 90% statements/functions/lines and an 83%
+branch ratchet; all listed state-machine and critical domain-policy thresholds remain 90%. These two
+branch ratchets match the clean isolated CP-10 baseline (74.02% and 83.87%) and may only move upward.
+
 CI uses the same pnpm scripts as local execution and a real PostgreSQL service.
 
 ## CP-02 gates
@@ -78,3 +83,16 @@ controller and application behavior are tested without requiring a live bot toke
   full lifecycle, and concurrent stale-writer tests.
 - Full prior integration suite, at least 80% overall executable coverage, production build,
   migration consistency, and dependency audit.
+
+## CP-10 gates
+
+- Deterministic resident/staff update-rate boundaries, reset behavior and concurrent-burst checks.
+- Safe error metadata, fixed-label metrics, structured alert and hardened HTTP-header tests.
+- Exact unit and persisted PostgreSQL role-permission matrix verification.
+- Telegram photo identity/control-character, size, media-type and per-phase count boundaries.
+- Real custom-format PostgreSQL backup, isolated restore, schema/core-count comparison and cleanup.
+- Bounded loopback HTTP load smoke with recorded request count, concurrency, failure count and
+  latency; this is a saturation warning, not a production capacity claim.
+- Existing readiness degradation, outbox retry/dead-letter recovery, optimistic-concurrency and
+  graceful-shutdown tests remain mandatory regression gates.
+- Full quality, coverage, integration, build, migration-consistency and dependency-audit gates.

@@ -11,6 +11,8 @@ import { TransitionRequestService } from './application/requests/transition-requ
 import { QualityService, ResidentQualityService } from './application/quality/quality-service.js';
 import { NotificationService } from './application/notifications/notification-service.js';
 import { OperationalAutomation } from './application/automation/operational-automation.js';
+import { OperationalAlerts } from './application/observability/operational-alerts.js';
+import { OperationalMetrics } from './application/observability/operational-metrics.js';
 import { ReportingService } from './application/reporting/reporting-service.js';
 import { PdcaService } from './application/pdca/pdca-service.js';
 import { CommercialService } from './application/commercial/commercial-service.js';
@@ -45,15 +47,22 @@ import { buildApp } from './interfaces/http/build-app.js';
 import { createResidentBot } from './interfaces/telegram/resident-bot.js';
 import { createStaffBot } from './interfaces/telegram/staff-bot.js';
 import { TelegramNotificationSender } from './interfaces/telegram/telegram-notification-sender.js';
+import { FixedWindowUpdateRateLimiter } from './interfaces/telegram/update-rate-limiter.js';
+import { safeErrorMetadata } from './domain/shared/safe-error.js';
 
 async function start(): Promise<void> {
   const environment = loadEnvironment(process.env);
   const database = createPostgresDependency(environment.DATABASE_URL);
   const healthService = new HealthService([database.probe]);
+  const metrics = new OperationalMetrics();
   const app = buildApp({
     healthService,
     logLevel: environment.LOG_LEVEL,
+    metrics,
     serviceName: environment.SERVICE_NAME,
+  });
+  const alerts = new OperationalAlerts(metrics, (event) => {
+    app.log.warn({ operationalAlert: event }, 'Operational alert raised');
   });
   let applicationDatabase: DatabaseClient | undefined;
   let stopResidentBot: (() => Promise<void>) | undefined;
@@ -91,8 +100,18 @@ async function start(): Promise<void> {
     );
     const bot = createResidentBot({
       onError(error, updateId): void {
-        app.log.error({ err: error, telegramUpdateId: updateId }, 'Resident bot update failed');
+        app.log.error(
+          { error: safeErrorMetadata(error), telegramUpdateId: updateId },
+          'Resident bot update failed',
+        );
+        alerts.raise('resident_bot_update_failed', 'warning');
       },
+      onUpdate: (outcome, duration) => metrics.recordTelegramUpdate('resident', outcome, duration),
+      rateLimiter: new FixedWindowUpdateRateLimiter(
+        environment.RESIDENT_BOT_RATE_LIMIT,
+        environment.TELEGRAM_RATE_LIMIT_WINDOW_SECONDS * 1_000,
+        5_000,
+      ),
       respondToInformation: new RespondToInformationService(
         principalProvider,
         new TransitionRequestService(requestRepository),
@@ -125,8 +144,13 @@ async function start(): Promise<void> {
     );
     const staffBot = createStaffBot({
       onError(error, updateId): void {
-        app.log.error({ err: error, telegramUpdateId: updateId }, 'Staff bot update failed');
+        app.log.error(
+          { error: safeErrorMetadata(error), telegramUpdateId: updateId },
+          'Staff bot update failed',
+        );
+        alerts.raise('staff_bot_update_failed', 'warning');
       },
+      onUpdate: (outcome, duration) => metrics.recordTelegramUpdate('staff', outcome, duration),
       operations: new StaffOperationsService({
         assessPriority: new AssessPriorityService(triageRepository),
         commercial: new CommercialService(new PostgresCommercialRepository(applicationDatabase.db)),
@@ -148,6 +172,11 @@ async function start(): Promise<void> {
           new PostgresRequestRepository(applicationDatabase.db),
         ),
       }),
+      rateLimiter: new FixedWindowUpdateRateLimiter(
+        environment.STAFF_BOT_RATE_LIMIT,
+        environment.TELEGRAM_RATE_LIMIT_WINDOW_SECONDS * 1_000,
+        500,
+      ),
       token: environment.STAFF_BOT_TOKEN,
     });
     stopStaffBot = async (): Promise<void> => staffBot.stop();
@@ -166,7 +195,10 @@ async function start(): Promise<void> {
       activeCycle = automation
         .runCycle(workerId)
         .then((result) => app.log.debug({ automation: result }, 'Automation cycle completed'))
-        .catch((error: unknown) => app.log.error({ err: error }, 'Automation cycle failed'))
+        .catch((error: unknown) => {
+          app.log.error({ error: safeErrorMetadata(error) }, 'Automation cycle failed');
+          alerts.raise('automation_cycle_failed', 'critical');
+        })
         .finally(() => {
           activeCycle = undefined;
         });

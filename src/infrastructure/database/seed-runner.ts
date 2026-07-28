@@ -1,6 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 
-import { permissionKeys, type PermissionKey } from '../../domain/identity/permissions.js';
+import { permissionKeys } from '../../domain/identity/permissions.js';
+import { rolePermissionMatrix } from '../../domain/identity/role-permission-matrix.js';
 import type { MckDatabase } from './client.js';
 import {
   permissions,
@@ -15,49 +16,6 @@ import {
   serviceAreas,
   serviceCategories,
 } from './schema.js';
-
-const rolePermissionMap: Readonly<Record<string, readonly PermissionKey[]>> = {
-  administrator: permissionKeys,
-  executor: [
-    'order.read.area',
-    'assignment.respond',
-    'order.update_progress',
-    'order.work_log.add',
-    'order.evidence.add',
-    'order.submit_completion',
-    'order.start_rework',
-  ],
-  operator_manager: [
-    'request.read.area',
-    'request.validate',
-    'request.request_information',
-    'request.provide_information',
-    'request.register',
-    'request.reject',
-    'request.triage',
-    'request.duplicate.review',
-    'order.read.area',
-    'order.assign',
-    'order.cancel',
-    'order.escalation.review',
-    'order.escalation.manage',
-    'notification.manage',
-    'report.read',
-    'report.export',
-    'finance.read',
-    'finance.manage',
-    'document.read',
-    'pdca.manage',
-    'quality.inspect',
-    'quality.accept',
-    'quality.require_rework',
-    'quality.complaint.review',
-    'quality.reopen',
-    'priority.override',
-    'audit.read',
-  ],
-  resident: ['request.read.own', 'request.provide_information', 'request.cancel.own'],
-};
 
 export async function seedFoundation(database: MckDatabase): Promise<void> {
   await database.transaction(async (tx) => {
@@ -288,14 +246,14 @@ export async function seedFoundation(database: MckDatabase): Promise<void> {
         target: [priorityCriteria.modelId, priorityCriteria.code],
       });
 
-    for (const [roleCode, rolePermissionCodes] of Object.entries(rolePermissionMap)) {
+    for (const [roleCode, rolePermissionCodes] of Object.entries(rolePermissionMatrix)) {
       const [role] = await tx.select({ id: roles.id }).from(roles).where(eq(roles.code, roleCode));
       if (!role) throw new Error(`Seed role not found: ${roleCode}`);
       const permissionRows = await tx
         .select({ id: permissions.id, code: permissions.code })
         .from(permissions);
       const selected = permissionRows.filter((row) =>
-        rolePermissionCodes.includes(row.code as PermissionKey),
+        (rolePermissionCodes as readonly string[]).includes(row.code),
       );
       await tx
         .insert(rolePermissions)

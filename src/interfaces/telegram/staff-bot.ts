@@ -28,10 +28,16 @@ import {
   type StaffMenuAction,
 } from './staff-menu.js';
 import { TransientStore } from './transient-store.js';
+import type { UpdateRateLimiter } from './update-rate-limiter.js';
 
 export interface StaffBotOptions {
   readonly onError?: (error: Error, updateId: number) => void;
+  readonly onUpdate?: (
+    outcome: 'failed' | 'rate_limited' | 'succeeded',
+    durationMilliseconds: number,
+  ) => void;
   readonly operations: StaffOperations;
+  readonly rateLimiter?: UpdateRateLimiter;
   readonly token: string;
 }
 
@@ -143,6 +149,31 @@ export function createStaffBot(options: StaffBotOptions): Bot {
     languages.set(key, detected);
     return detected;
   };
+
+  bot.use(async (ctx, next) => {
+    const startedAt = performance.now();
+    try {
+      if (ctx.from && options.rateLimiter) {
+        const decision = options.rateLimiter.consume(ctx.from.id.toString());
+        if (!decision.allowed) {
+          options.onUpdate?.('rate_limited', performance.now() - startedAt);
+          await ctx.reply(
+            localized(
+              language(ctx),
+              `Juda ko'p urinish. ${decision.retryAfterSeconds} soniyadan keyin qayta urinib ko'ring.`,
+              `Слишком много действий. Повторите через ${decision.retryAfterSeconds} сек.`,
+            ),
+          );
+          return;
+        }
+      }
+      await next();
+      options.onUpdate?.('succeeded', performance.now() - startedAt);
+    } catch (error: unknown) {
+      options.onUpdate?.('failed', performance.now() - startedAt);
+      throw error;
+    }
+  });
 
   const replyResult = async (
     ctx: Context,

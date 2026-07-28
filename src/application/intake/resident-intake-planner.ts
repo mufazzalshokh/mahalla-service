@@ -1,4 +1,5 @@
 import { DomainRuleError } from '../../domain/shared/domain-errors.js';
+import { isSafeTelegramPhotoReference } from '../../domain/shared/telegram-photo-policy.js';
 import {
   addTashkentCalendarDays,
   formatTashkentDate,
@@ -20,7 +21,6 @@ import type {
 
 export const currentPrivacyNoticeVersion = '2026-07-28-v2';
 const defaultLanguage: SupportedLanguage = 'uz-Latn';
-const maximumPhotoBytes = 10 * 1024 * 1024;
 const maximumPhotos = 3;
 
 function initialSession(): IntakeSession {
@@ -490,7 +490,7 @@ export function planResidentUpdate(
   }
 
   if (current.step === 'ADD_PHOTOS' && input.kind === 'photo') {
-    if (input.photo.fileSize <= 0 || input.photo.fileSize > maximumPhotoBytes) {
+    if (!isSafeTelegramPhotoReference(input.photo)) {
       return { response: response('photo_invalid', language), session: current };
     }
     if (current.draft.photos.length >= maximumPhotos) {

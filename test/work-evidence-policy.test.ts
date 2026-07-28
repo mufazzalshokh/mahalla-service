@@ -27,6 +27,12 @@ describe('work evidence policy', () => {
 
   it('requires Telegram identity, bounded size and supported media', () => {
     expect(() => validateWorkEvidence({ ...valid, fileId: '' }, 0)).toThrowError(/identity/i);
+    expect(() => validateWorkEvidence({ ...valid, fileId: ' unsafe ' }, 0)).toThrowError(
+      /identity/i,
+    );
+    expect(() =>
+      validateWorkEvidence({ ...valid, fileUniqueId: `bad\nreference` }, 0),
+    ).toThrowError(/identity/i);
     expect(() => validateWorkEvidence({ ...valid, fileSize: 0 }, 0)).toThrowError(/10 MB/i);
     expect(() => validateWorkEvidence({ ...valid, fileSize: 10_485_761 }, 0)).toThrowError(
       /10 MB/i,

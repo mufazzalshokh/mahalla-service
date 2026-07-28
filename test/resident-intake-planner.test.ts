@@ -188,6 +188,13 @@ describe('resident intake planner', () => {
       plan(3n, { kind: 'photo', photo: { fileId: 'x', fileSize: 0, fileUniqueId: 'x' } }, photoStep)
         .response.key,
     ).toBe('photo_invalid');
+    expect(
+      plan(
+        3n,
+        { kind: 'photo', photo: { fileId: ' unsafe ', fileSize: 1, fileUniqueId: 'x' } },
+        photoStep,
+      ).response.key,
+    ).toBe('photo_invalid');
     const full: IntakeSession = {
       ...photoStep,
       draft: {

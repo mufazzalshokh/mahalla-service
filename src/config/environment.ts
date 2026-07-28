@@ -44,6 +44,9 @@ const environmentSchema = z
         .regex(/^\d{6,12}:[A-Za-z0-9_-]{30,}$/)
         .optional(),
     ),
+    RESIDENT_BOT_RATE_LIMIT: z.coerce.number().int().min(5).max(300).default(30),
+    STAFF_BOT_RATE_LIMIT: z.coerce.number().int().min(5).max(600).default(60),
+    TELEGRAM_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(10).max(3600).default(60),
   })
   .superRefine((value, context) => {
     if (value.RESIDENT_BOT_ENABLED && !value.RESIDENT_BOT_TOKEN) {
@@ -108,5 +111,9 @@ export function loadEnvironment(source: NodeJS.ProcessEnv): Environment {
     );
   }
 
-  return Object.freeze(parsed.data);
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(parsed.data).filter(([, value]) => value !== undefined),
+    ) as Environment,
+  );
 }
