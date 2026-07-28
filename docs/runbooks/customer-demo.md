@@ -29,11 +29,11 @@ The clearest demonstration uses three Telegram accounts:
 Two accounts can be used only if the prepared staff account legitimately has the required operator and
 executor permissions. Never weaken authorization merely to simplify a demonstration.
 
-Before the meeting, prepare this card privately:
+Current demonstration bots:
 
 ```text
-Resident bot: https://t.me/<resident_bot_username>
-Staff bot:    https://t.me/<staff_bot_username>
+Resident bot: https://t.me/msk_resident_bot
+Staff bot:    https://t.me/msk_staff_bot
 Demo operator account: <name>
 Demo executor account: <name>
 ```

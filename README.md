@@ -37,6 +37,14 @@ Use synthetic names, phone numbers, addresses, photos and amounts. The recommend
 Follow the complete [customer demonstration guide](docs/runbooks/customer-demo.md). It includes the
 exact buttons, expected codes, Uzbek/Russian sales script, troubleshooting and honest pilot limits.
 
+### Demo bot links
+
+- Resident: [@msk_resident_bot](https://t.me/msk_resident_bot)
+- Staff: [@msk_staff_bot](https://t.me/msk_staff_bot)
+
+The local application must be running for either bot to answer. The staff link does not grant access;
+the Telegram account still needs an active, area-scoped staff role.
+
 ## Prerequisites
 
 - Node.js 24 LTS
