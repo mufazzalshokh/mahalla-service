@@ -15,6 +15,12 @@ import {
 import { ResidentTelegramController, type TelegramReply } from './resident-telegram-controller.js';
 import { translate } from './translations.js';
 import { residentQualityMessage } from './resident-quality-messages.js';
+import {
+  isManualAddressButton,
+  residentMainMenu,
+  residentMenuActionForText,
+} from './resident-menu.js';
+import { PhotoAlbumBuffer } from './photo-album-buffer.js';
 import { TransientStore } from './transient-store.js';
 
 export interface ResidentBotOptions {
@@ -40,6 +46,15 @@ async function reply(ctx: Context, response: TelegramReply): Promise<void> {
     await ctx.reply(response.text, { reply_markup: keyboard });
     return;
   }
+  if (response.locationLabel && response.manualAddressLabel) {
+    const keyboard = new Keyboard()
+      .requestLocation(response.locationLabel)
+      .text(response.manualAddressLabel)
+      .resized()
+      .oneTime();
+    await ctx.reply(response.text, { reply_markup: keyboard });
+    return;
+  }
   if (response.inlineActions.length > 0) {
     const keyboard = new InlineKeyboard();
     for (const [index, action] of response.inlineActions.entries()) {
@@ -47,6 +62,16 @@ async function reply(ctx: Context, response: TelegramReply): Promise<void> {
       if ((index + 1) % response.actionColumns === 0) keyboard.row();
     }
     await ctx.reply(response.text, { reply_markup: keyboard });
+    if (response.mainMenuLanguage) {
+      const supported = response.mainMenuLanguage === 'ru' ? 'ru' : 'uz-Latn';
+      await ctx.reply(translate(supported, 'main_menu_ready'), {
+        reply_markup: residentMainMenu(response.mainMenuLanguage),
+      });
+    }
+    return;
+  }
+  if (response.mainMenuLanguage) {
+    await ctx.reply(response.text, { reply_markup: residentMainMenu(response.mainMenuLanguage) });
     return;
   }
   await ctx.reply(response.text, { reply_markup: { remove_keyboard: true } });
@@ -68,12 +93,52 @@ export function createResidentBot(options: ResidentBotOptions): Bot {
   const bot = new Bot(options.token);
   const controller = new ResidentTelegramController(options.service);
   const languages = new TransientStore<BotLanguage>(24 * 60 * 60 * 1_000, 5_000);
+  const pendingStatus = new TransientStore<true>(10 * 60 * 1_000, 5_000);
   const language = (ctx: Context): BotLanguage => {
     if (!ctx.from) return 'uz';
     return languages.get(ctx.from.id.toString()) ?? botLanguageFromTelegram(ctx.from.language_code);
   };
 
-  bot.command('start', (ctx) => dispatch(ctx, { kind: 'start' }, controller));
+  const handleError = async (ctx: Context, error: unknown): Promise<void> => {
+    const normalized = error instanceof Error ? error : new Error('Unknown Telegram handler error');
+    options.onError?.(normalized, ctx.update.update_id);
+    await ctx.reply(translate(language(ctx) === 'ru' ? 'ru' : 'uz-Latn', 'unexpected_error'));
+  };
+
+  interface PhotoEnvelope {
+    readonly ctx: Context;
+    readonly input: Extract<ResidentUpdateInput, { readonly kind: 'photo' }>;
+  }
+  const photoAlbums = new PhotoAlbumBuffer<PhotoEnvelope>(
+    async (items) => {
+      const ordered = [...items].sort(
+        (left, right) => left.ctx.update.update_id - right.ctx.update.update_id,
+      );
+      let final: { readonly ctx: Context; readonly response: TelegramReply } | undefined;
+      for (const item of ordered) {
+        const updateCommand = command(item.ctx, item.input);
+        if (!updateCommand) continue;
+        final = { ctx: item.ctx, response: await controller.handle(updateCommand) };
+      }
+      if (final) await reply(final.ctx, final.response);
+    },
+    (error, items) => {
+      const last = items.at(-1);
+      if (last) void handleError(last.ctx, error);
+    },
+  );
+
+  const showMainMenu = async (ctx: Context): Promise<void> => {
+    const selected = language(ctx);
+    await ctx.reply(translate(selected === 'ru' ? 'ru' : 'uz-Latn', 'main_menu_ready'), {
+      reply_markup: residentMainMenu(selected),
+    });
+  };
+  bot.command('start', async (ctx) => {
+    if (ctx.from) pendingStatus.delete(ctx.from.id.toString());
+    await showMainMenu(ctx);
+  });
+  bot.command('menu', showMainMenu);
   bot.command('status', (ctx) =>
     dispatch(ctx, { kind: 'status', ticketNumber: ctx.match.trim().toUpperCase() }, controller),
   );
@@ -185,6 +250,16 @@ export function createResidentBot(options: ResidentBotOptions): Bot {
         languages.set(ctx.from.id.toString(), selected === 'ru' ? 'ru' : 'uz');
       }
     }
+    if (ctx.callbackQuery.data.startsWith('status:')) {
+      return dispatch(
+        ctx,
+        {
+          kind: 'status',
+          ticketNumber: ctx.callbackQuery.data.slice('status:'.length).toUpperCase(),
+        },
+        controller,
+      );
+    }
     return dispatch(ctx, { data: ctx.callbackQuery.data, kind: 'callback' }, controller);
   });
   bot.on('message:contact', (ctx) =>
@@ -212,27 +287,55 @@ export function createResidentBot(options: ResidentBotOptions): Bot {
   bot.on('message:photo', (ctx) => {
     const photo = ctx.message.photo.at(-1);
     if (!photo) return Promise.resolve();
-    return dispatch(
-      ctx,
-      {
-        kind: 'photo',
-        photo: {
-          fileId: photo.file_id,
-          fileSize: photo.file_size ?? 0,
-          fileUniqueId: photo.file_unique_id,
-        },
+    const input = {
+      kind: 'photo',
+      photo: {
+        fileId: photo.file_id,
+        fileSize: photo.file_size ?? 0,
+        fileUniqueId: photo.file_unique_id,
       },
-      controller,
-    );
+    } as const;
+    photoAlbums.add(ctx.from.id.toString(), { ctx, input });
+    return Promise.resolve();
   });
-  bot.on('message:text', (ctx) =>
-    dispatch(ctx, { kind: 'text', text: ctx.message.text }, controller),
-  );
+  bot.on('message:text', async (ctx) => {
+    const key = ctx.from.id.toString();
+    const text = ctx.message.text;
+    if (isManualAddressButton(text)) {
+      await dispatch(ctx, { data: 'address:manual', kind: 'callback' }, controller);
+      return;
+    }
+    const menuAction = residentMenuActionForText(text);
+    if (menuAction === 'new-request' || menuAction === 'language') {
+      pendingStatus.delete(key);
+      await ctx.reply(translate(language(ctx) === 'ru' ? 'ru' : 'uz-Latn', 'new_request_started'), {
+        reply_markup: { remove_keyboard: true },
+      });
+      await dispatch(ctx, { kind: 'start' }, controller);
+      return;
+    }
+    if (menuAction === 'status') {
+      pendingStatus.set(key, true);
+      await ctx.reply(translate(language(ctx) === 'ru' ? 'ru' : 'uz-Latn', 'enter_ticket_number'));
+      return;
+    }
+    if (menuAction === 'help') {
+      const selected = language(ctx);
+      await ctx.reply(translate(selected === 'ru' ? 'ru' : 'uz-Latn', 'resident_help'), {
+        reply_markup: residentMainMenu(selected),
+      });
+      return;
+    }
+    if (pendingStatus.get(key)) {
+      pendingStatus.delete(key);
+      await dispatch(ctx, { kind: 'status', ticketNumber: text.trim().toUpperCase() }, controller);
+      return;
+    }
+    await dispatch(ctx, { kind: 'text', text }, controller);
+  });
 
   bot.catch(async ({ error, ctx }) => {
-    const normalized = error instanceof Error ? error : new Error('Unknown Telegram handler error');
-    options.onError?.(normalized, ctx.update.update_id);
-    await ctx.reply(translate(language(ctx) === 'ru' ? 'ru' : 'uz-Latn', 'unexpected_error'));
+    await handleError(ctx, error);
   });
   return bot;
 }

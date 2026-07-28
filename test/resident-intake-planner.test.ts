@@ -65,22 +65,26 @@ describe('resident intake planner', () => {
     expect(result.response.key).toBe('choose_urgency');
     result = plan(7n, { data: 'urgency:IMPORTANT', kind: 'callback' }, result.session);
     result = plan(8n, { kind: 'text', text: 'Quvurdan suv oqmoqda' }, result.session);
+    expect(result.response).toMatchObject({ key: 'enter_address', requestLocation: true });
+    const manual = plan(9n, { data: 'address:manual', kind: 'callback' }, result.session);
+    expect(manual.response.key).toBe('enter_address_manual');
+    expect(manual.session).toEqual(result.session);
     result = plan(
-      9n,
+      10n,
       { kind: 'location', latitude: 41.311081, longitude: 69.240562 },
       result.session,
     );
     const visitDate = result.response.actions?.find(({ data }) => data.startsWith('visit:date:'));
     if (!visitDate) throw new Error('Expected a visit date action');
-    result = plan(10n, { data: visitDate.data, kind: 'callback' }, result.session);
+    result = plan(11n, { data: visitDate.data, kind: 'callback' }, result.session);
     const period = result.response.actions?.[0];
     if (!period) throw new Error('Expected a visit period action');
-    result = plan(11n, { data: period.data, kind: 'callback' }, result.session);
+    result = plan(12n, { data: period.data, kind: 'callback' }, result.session);
     const slot = result.response.actions?.[0];
     if (!slot) throw new Error('Expected a visit slot action');
-    result = plan(12n, { data: slot.data, kind: 'callback' }, result.session);
+    result = plan(13n, { data: slot.data, kind: 'callback' }, result.session);
     result = plan(
-      13n,
+      14n,
       {
         kind: 'photo',
         photo: { fileId: 'file-1', fileSize: 1_024, fileUniqueId: 'unique-1' },
@@ -89,7 +93,7 @@ describe('resident intake planner', () => {
     );
     expect(result.response).toMatchObject({ key: 'photo_added', parameters: { count: '1' } });
 
-    result = plan(14n, { data: 'photos:done', kind: 'callback' }, result.session);
+    result = plan(15n, { data: 'photos:done', kind: 'callback' }, result.session);
     expect(result.response).toMatchObject({
       key: 'review_request',
       parameters: {
@@ -100,9 +104,13 @@ describe('resident intake planner', () => {
       },
     });
 
-    result = plan(15n, { data: 'submit:confirm', kind: 'callback' }, result.session);
+    result = plan(16n, { data: 'submit:confirm', kind: 'callback' }, result.session);
     expect(result.submit).toBe(true);
     expect(result.session.step).toBe('SUBMITTED');
+    expect(result.response).toMatchObject({
+      actions: [{ data: 'status:__GENERATED_TICKET__', labelKey: 'button_check_status' }],
+      showMainMenu: true,
+    });
   });
 
   it('supports Russian as a persisted intake language', () => {

@@ -212,6 +212,12 @@ export function planResidentUpdate(
     return {
       response: context.ticket
         ? response('status_result', language, {
+            actions: [
+              {
+                data: `status:${context.ticket.ticketNumber}`,
+                labelKey: 'button_check_status',
+              },
+            ],
             parameters: {
               status: context.ticket.status,
               ticketNumber: context.ticket.ticketNumber,
@@ -342,7 +348,18 @@ export function planResidentUpdate(
       return { response: response('invalid_description', language), session: current };
     }
     const session = next(current, 'ENTER_ADDRESS', { ...current.draft, description });
-    return { response: response('enter_address', language), session };
+    return {
+      response: response('enter_address', language, { requestLocation: true }),
+      session,
+    };
+  }
+
+  if (
+    current.step === 'ENTER_ADDRESS' &&
+    input.kind === 'callback' &&
+    input.data === 'address:manual'
+  ) {
+    return { response: response('enter_address_manual', language), session: current };
   }
 
   if (current.step === 'ENTER_ADDRESS' && (input.kind === 'text' || input.kind === 'location')) {
@@ -512,7 +529,14 @@ export function planResidentUpdate(
     }
     return {
       response: response('submitted', language, {
+        actions: [
+          {
+            data: 'status:__GENERATED_TICKET__',
+            labelKey: 'button_check_status',
+          },
+        ],
         parameters: { ticketNumber: '__GENERATED_TICKET__' },
+        showMainMenu: true,
       }),
       session: next(current, 'SUBMITTED'),
       submit: true,

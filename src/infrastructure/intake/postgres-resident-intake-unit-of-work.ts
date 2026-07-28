@@ -50,6 +50,7 @@ const responseSchema = z.object({
     'enter_description',
     'invalid_description',
     'enter_address',
+    'enter_address_manual',
     'invalid_address',
     'choose_visit_date',
     'choose_visit_period',
@@ -69,6 +70,8 @@ const responseSchema = z.object({
   language: z.enum(['uz-Latn', 'uz-Cyrl', 'ru']),
   parameters: z.record(z.string(), z.string()).optional(),
   requestContact: z.boolean().optional(),
+  requestLocation: z.boolean().optional(),
+  showMainMenu: z.boolean().optional(),
 });
 
 const draftSchema = z.object({
@@ -155,6 +158,14 @@ function requireCompleteDraft(draft: IntakeDraft): CompleteDraft {
 function withTicket(response: IntakeResponse, ticketNumber: string): IntakeResponse {
   return {
     ...response,
+    ...(response.actions
+      ? {
+          actions: response.actions.map((action) => ({
+            ...action,
+            data: action.data.replace('__GENERATED_TICKET__', ticketNumber),
+          })),
+        }
+      : {}),
     parameters: { ...response.parameters, ticketNumber },
   };
 }

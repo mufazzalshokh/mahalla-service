@@ -98,6 +98,7 @@ export type MessageKey =
   | 'enter_description'
   | 'invalid_description'
   | 'enter_address'
+  | 'enter_address_manual'
   | 'invalid_address'
   | 'choose_visit_date'
   | 'choose_visit_period'
@@ -127,6 +128,8 @@ export interface IntakeResponse {
   readonly language: SupportedLanguage;
   readonly parameters?: Readonly<Record<string, string>> | undefined;
   readonly requestContact?: boolean | undefined;
+  readonly requestLocation?: boolean | undefined;
+  readonly showMainMenu?: boolean | undefined;
 }
 
 export interface IntakePlanningContext {

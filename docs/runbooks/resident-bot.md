@@ -20,17 +20,20 @@ Only one long-polling resident-bot process may run for a token. The database ide
 
 ## Demonstration flow
 
-1. Send `/start`.
-2. Select Uzbek or Russian. Uzbek Cyrillic remains supported for existing stored sessions.
+1. Send `/start` or `/menu` to open the persistent resident menu.
+2. Press `🛠 Yangi so‘rov / Новая заявка`, then select Uzbek or Russian. Uzbek Cyrillic remains
+   supported for existing stored sessions.
 3. Accept the draft privacy notice (synthetic demonstration data only until MCK/legal approval).
 4. Enter a full name and share the same Telegram account's contact.
 5. Select a category and the resident-declared urgency: critical, important (1–3 days), or planned.
-6. Describe the issue and send address/location.
+6. Describe the issue, then choose `📍` Telegram location or `⌨️` manual address entry.
 7. Select a preferred visit day, part of day, and one-hour window. Critical requests can choose
    “as soon as possible.” This is a preference until staff confirms it.
-8. Optionally send up to three Telegram photos and press Done.
+8. Optionally send up to three Telegram photos and press Done. Photos sent together produce one
+   combined count and one Done button rather than one bot reply per photo.
 9. Review the bilingual summary, confirm, and retain the returned `MCK-YYYY-NNNNNNNN` ticket.
-10. Query `/status MCK-YYYY-NNNNNNNN` from the same account.
+10. Press the returned `🔎 Holatni tekshirish / Проверить статус` button, use the same option in
+    the persistent menu, or query `/status MCK-YYYY-NNNNNNNN` from the same account.
 11. When an order awaits acceptance, use `/accept ORDER` or `/rework ORDER reason`.
 12. After completion, use `/warranty ORDER`, `/rate ORDER 1..5 optional comment`, or
     `/complaint ORDER reason`.

@@ -130,6 +130,13 @@ describe.runIf(Boolean(databaseUrl))('CP-03 resident intake persistence', () => 
 
     expect(replayed).toEqual(submitted);
     expect(submitted.parameters?.ticketNumber).toMatch(/^MCK-\d{4}-\d{8}$/);
+    expect(submitted.actions).toEqual([
+      {
+        data: `status:${submitted.parameters?.ticketNumber}`,
+        labelKey: 'button_check_status',
+      },
+    ]);
+    expect(submitted.showMainMenu).toBe(true);
     const [user] = await client.db
       .select({ id: users.id })
       .from(users)

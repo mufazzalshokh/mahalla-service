@@ -57,6 +57,33 @@ describe('resident Telegram controller', () => {
     expect(reply.inlineActions).toEqual([]);
   });
 
+  it('renders location/manual controls and the post-submission main menu signal', async () => {
+    const locationController = new ResidentTelegramController(
+      new HandleResidentUpdateService(
+        new ResponseUnitOfWork({
+          key: 'enter_address',
+          language: 'ru',
+          requestLocation: true,
+        }),
+      ),
+    );
+    await expect(
+      locationController.handle({ input: { kind: 'start' }, telegramUserId: 1n, updateId: 1n }),
+    ).resolves.toMatchObject({
+      locationLabel: '📍 Отправить геолокацию',
+      manualAddressLabel: '⌨️ Ввести адрес',
+    });
+
+    const submittedController = new ResidentTelegramController(
+      new HandleResidentUpdateService(
+        new ResponseUnitOfWork({ key: 'submitted', language: 'uz-Latn', showMainMenu: true }),
+      ),
+    );
+    await expect(
+      submittedController.handle({ input: { kind: 'start' }, telegramUserId: 1n, updateId: 2n }),
+    ).resolves.toMatchObject({ mainMenuLanguage: 'uz' });
+  });
+
   it('uses a safe key fallback for a data-driven category label', () => {
     expect(translate('uz-Latn', 'Santexnika')).toBe('Santexnika');
   });
