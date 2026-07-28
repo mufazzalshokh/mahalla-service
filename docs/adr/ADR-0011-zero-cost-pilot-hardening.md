@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for CP-10 implementation; stakeholder checkpoint approval pending.
+Accepted. CP-10 stakeholder approval received on 2026-07-28.
 
 ## Context
 

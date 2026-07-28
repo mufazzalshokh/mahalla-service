@@ -5,8 +5,8 @@ This directory is the source of truth for the incremental Mahalla Service Compan
 
 ## Current checkpoint
 
-CP-00 through CP-09 are approved. CP-10 security, reliability and observability hardening is
-implemented and awaiting stakeholder approval.
+CP-00 through CP-10 are approved. CP-11 production readiness and first paid pilot deployment is
+next.
 
 ## Documents
 

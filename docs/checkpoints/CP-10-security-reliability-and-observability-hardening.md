@@ -1,5 +1,5 @@
 CHECKPOINT: CP-10 — Security, reliability and observability hardening
-STATUS: IMPLEMENTED — AWAITING STAKEHOLDER APPROVAL
+STATUS: APPROVED — 2026-07-28
 
 ## 1. Objective
 
@@ -78,4 +78,4 @@ channel, deployment/rollback rehearsal and buyer-approved real-data/privacy oper
 
 ## 9. Approval
 
-Pending the exact stakeholder phrase `APPROVE CP-10`.
+Stakeholder approval received on 2026-07-28 with the exact phrase `APPROVE CP-10`.
