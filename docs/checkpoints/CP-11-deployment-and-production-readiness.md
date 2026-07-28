@@ -1,5 +1,5 @@
 CHECKPOINT: CP-11 — Deployment and production readiness
-STATUS: IMPLEMENTED — AWAITING APPROVAL
+STATUS: APPROVED — 2026-07-29
 
 ## 1. Objective
 
@@ -69,10 +69,10 @@ isolated database first; never edit migration history or drop production tables 
 
 ## 8. Recommended next action
 
-Approve CP-11 and use the existing synthetic bot demo to sell the paid pilot. Execute the external
-readiness checklist only after the customer funds the host. CP-12 ecosystem integrations remain
-future work, not a prerequisite for the first sale.
+Use the existing synthetic bot demo to sell the paid pilot. Execute the external readiness checklist
+only after the customer funds the host. CP-12 ecosystem integrations remain future work, not a
+prerequisite for the first sale.
 
 ## 9. Approval
 
-Awaiting the exact stakeholder phrase `APPROVE CP-11`.
+Stakeholder approval received on 2026-07-29 with the exact phrase `APPROVE CP-11`.

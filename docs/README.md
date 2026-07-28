@@ -5,8 +5,8 @@ This directory is the source of truth for the incremental Mahalla Service Compan
 
 ## Current checkpoint
 
-CP-00 through CP-10 are approved. CP-11 production readiness is implemented and awaiting approval;
-external paid-pilot go-live remains explicitly blocked until the readiness checklist is approved.
+CP-00 through CP-11 are approved. External paid-pilot go-live remains explicitly blocked until the
+production-readiness checklist is completed and real-data operation is separately authorized.
 
 ## Documents
 

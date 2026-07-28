@@ -3,9 +3,8 @@
 Telegram-first order portfolio and service-management platform for a Mahalla
 Service Company (MCK).
 
-The repository is delivered checkpoint by checkpoint. CP-00 through CP-10 are approved. CP-11
-production readiness is implemented and awaiting approval; real-data go-live still requires the
-approved checklist.
+The repository is delivered checkpoint by checkpoint. CP-00 through CP-11 are approved. Real-data
+go-live still requires the completed production-readiness checklist and separate authorization.
 
 ## Prerequisites
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented for CP-11; checkpoint approval and external go-live approval pending.
+Accepted and implemented in approved CP-11; external real-data go-live approval remains pending.
 
 ## Context
 
