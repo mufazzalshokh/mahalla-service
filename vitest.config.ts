@@ -5,6 +5,7 @@ export default defineConfig({
     coverage: {
       exclude: [
         'src/main.ts',
+        'src/config/validate-production.ts',
         'src/infrastructure/database/migrate.ts',
         'src/infrastructure/database/schema.ts',
         'src/infrastructure/database/seed.ts',

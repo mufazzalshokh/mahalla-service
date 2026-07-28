@@ -108,3 +108,9 @@ controller and application behavior are tested without requiring a live bot toke
 - One-shot migration plus health/readiness/metrics/release smoke against an isolated production-style
   Compose stack before external go-live.
 - Full existing quality, coverage, integration, migration and dependency-advisory gates.
+
+The thin production-validation command entry point is excluded from executable coverage, matching
+the migration/seed command policy. Its configuration policy is unit-tested, while CI renders the
+production Compose file and the deployment script invokes the built validator. The coverage command
+already executes every PostgreSQL integration file when `TEST_DATABASE_URL` is present, so CI does
+not rerun the same stateful suite against the same database a second time.
