@@ -8,8 +8,8 @@ import {
   botLanguageFromTelegram,
   type BotLanguage,
 } from '../../application/localization/bot-language.js';
-import { DomainRuleError } from '../../domain/shared/domain-errors.js';
 import { StaffTelegramController } from './staff-telegram-controller.js';
+import { staffErrorMessage } from './staff-error-message.js';
 import {
   complaintActions,
   orderActions,
@@ -420,7 +420,17 @@ export function createStaffBot(options: StaffBotOptions): Bot {
       };
       const keyboard = menus[action ?? ''];
       await ctx.answerCallbackQuery();
-      if (keyboard) await ctx.reply(reference, { reply_markup: keyboard });
+      if (keyboard) {
+        const heading =
+          action === 'request'
+            ? localized(
+                selected,
+                `${reference}\n\nBosqichlarni tartib bilan bajaring:\n1. Tekshiruvni boshlang.\n2. Zarur bo‘lsa ma’lumot so‘rang.\n3. Ustuvorlikni baholang.\n4. Buyurtma yarating.`,
+                `${reference}\n\nВыполняйте шаги по порядку:\n1. Начните проверку.\n2. При необходимости запросите данные.\n3. Оцените приоритет.\n4. Создайте заказ.`,
+              )
+            : reference;
+        await ctx.reply(heading, { reply_markup: keyboard });
+      }
       return;
     }
     if (kind === 'action' && action && reference) {
@@ -647,16 +657,7 @@ export function createStaffBot(options: StaffBotOptions): Bot {
   bot.catch(async ({ error, ctx }) => {
     const normalized = error instanceof Error ? error : new Error('Unknown Telegram handler error');
     options.onError?.(normalized, ctx.update.update_id);
-    const selected = language(ctx);
-    const safeMessage =
-      normalized instanceof DomainRuleError && normalized.code === 'COMMAND_INVALID'
-        ? normalized.message
-        : localized(
-            selected,
-            'Amal bajarilmadi. Menyudan qayta urinib ko‘ring.',
-            'Не удалось выполнить действие. Повторите через меню.',
-          );
-    await ctx.reply(safeMessage);
+    await ctx.reply(staffErrorMessage(normalized, language(ctx)));
   });
   return bot;
 }

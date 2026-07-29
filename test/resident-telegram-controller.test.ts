@@ -91,5 +91,6 @@ describe('resident Telegram controller', () => {
   it('renders Russian resident messages', () => {
     expect(translate('ru', 'choose_category')).toContain('Выберите вид услуги.');
     expect(translate('ru', 'submitted', { ticketNumber: 'MCK-1' })).toContain('MCK-1');
+    expect(translate('ru', 'enter_ticket_number')).not.toContain('00000001');
   });
 });

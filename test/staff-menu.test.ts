@@ -65,5 +65,13 @@ describe('staff Telegram menu', () => {
     expect(requestActions('MCK-1', 'ru').inline_keyboard[0]?.[0]).toMatchObject({
       text: '👁 Подробности',
     });
+    expect(requestActions('MCK-1', 'uz').inline_keyboard.flat()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ text: '1️⃣ Tekshiruvni boshlash' }),
+        expect.objectContaining({ text: '2️⃣ Ma’lumot so‘rash' }),
+        expect.objectContaining({ text: '3️⃣ Ustuvorlikni baholash' }),
+        expect.objectContaining({ text: '4️⃣ Buyurtma yaratish' }),
+      ]),
+    );
   });
 });

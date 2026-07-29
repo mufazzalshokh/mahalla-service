@@ -165,22 +165,26 @@ export function requestActions(reference: string, language: BotLanguage): Inline
     .text(language === 'ru' ? '👁 Подробности' : '👁 Tafsilotlar', `action:details:${reference}`)
     .row()
     .text(
-      language === 'ru' ? 'Начать проверку' : 'Tekshiruvni boshlash',
+      language === 'ru' ? '1️⃣ Начать проверку' : '1️⃣ Tekshiruvni boshlash',
       `action:validate:${reference}`,
     )
     .row()
     .text(
-      language === 'ru' ? 'Похожие заявки' : 'O‘xshash so‘rovlar',
+      language === 'ru' ? '2️⃣ Запросить данные' : '2️⃣ Ma’lumot so‘rash',
+      `prompt:info:${reference}`,
+    )
+    .row()
+    .text(
+      language === 'ru' ? '🔎 Похожие заявки' : '🔎 O‘xshash so‘rovlar',
       `action:duplicates:${reference}`,
     )
     .text(
-      language === 'ru' ? 'Оценить приоритет' : 'Ustuvorlikni baholash',
+      language === 'ru' ? '3️⃣ Оценить приоритет' : '3️⃣ Ustuvorlikni baholash',
       `prompt:triage:${reference}`,
     )
     .row()
-    .text(language === 'ru' ? 'Запросить данные' : 'Ma’lumot so‘rash', `prompt:info:${reference}`)
     .text(
-      language === 'ru' ? 'Зарегистрировать' : 'Ro‘yxatga olish',
+      language === 'ru' ? '4️⃣ Создать заказ' : '4️⃣ Buyurtma yaratish',
       `action:register:${reference}`,
     )
     .row()
